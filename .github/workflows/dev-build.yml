@@ -5,6 +5,7 @@ on:
     inputs:
       release-new-build:
         type: boolean
+        default: false
         description: 'Release new build'
         required: true
 
@@ -110,7 +111,7 @@ jobs:
 
       - name: 🏷️ Create/update tag
         uses: actions/github-script@v7
-        if: "${{ github.event.inputs.release-new-build }}"
+        if: "${{ inputs.release-new-build }}"
         with:
           script: |
             github.rest.git.createRef({
@@ -130,7 +131,7 @@ jobs:
 
       - name: 📰 Build Changelog
         uses: mikepenz/release-changelog-builder-action@v4
-        if: "${{ github.event.inputs.release-new-build }}"
+        if: "${{ inputs.release-new-build }}"
         with:
           outputFile: CHANGELOG.md
           fromTag: ${{ env.FROM_TAG }}
@@ -160,7 +161,7 @@ jobs:
 
       - name: 🥳 Publish Dev Build
         uses: ncipollo/release-action@v1
-        if: "${{ github.event.inputs.release-new-build }}"
+        if: "${{ inputs.release-new-build }}"
         with:
           allowUpdates: true
           artifacts: dist/Loop.zip
