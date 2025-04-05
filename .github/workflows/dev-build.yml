@@ -11,7 +11,7 @@ on:
 
 jobs:
   pre-release:
-    name: Build and Publish Pre-release
+    name: Development Build
     runs-on: macos-14
     permissions:
       contents: write
