@@ -6,7 +6,10 @@
 //
 
 import Defaults
+import OSLog
 import SwiftUI
+
+let tempLogger = Logger(subsystem: "com.MrKai77.Loop", category: "bottom-padding-fix")
 
 struct WindowAction: Codable, Identifiable, Hashable, Equatable, Defaults.Serializable {
     var id: UUID
@@ -550,20 +553,26 @@ private extension WindowAction {
         }
 
         if croppedWindowFrame.minX != bounds.minX {
+            tempLogger.log("Applying inter-window padding to left; croppedWindowFrame.minX: \(croppedWindowFrame.minX) bounds.minX: \(bounds.minX)")
             croppedWindowFrame = croppedWindowFrame.padding(.leading, halfPadding)
         }
 
         if croppedWindowFrame.maxX != bounds.maxX {
+            tempLogger.log("Applying inter-window padding to right; croppedWindowFrame.maxX: \(croppedWindowFrame.maxX) bounds.maxX: \(bounds.maxX)")
             croppedWindowFrame = croppedWindowFrame.padding(.trailing, halfPadding)
         }
 
         if croppedWindowFrame.minY != bounds.minY {
+            tempLogger.log("Applying inter-window padding to top; croppedWindowFrame.minY: \(croppedWindowFrame.minY) bounds.minY: \(bounds.minY)")
             croppedWindowFrame = croppedWindowFrame.padding(.top, halfPadding)
         }
 
         if croppedWindowFrame.maxY != bounds.maxY {
+            tempLogger.log("Applying inter-window padding to bottom; croppedWindowFrame.maxY: \(croppedWindowFrame.maxY) bounds.maxY: \(bounds.maxY)")
             croppedWindowFrame = croppedWindowFrame.padding(.bottom, halfPadding)
         }
+
+        tempLogger.log("--- Cropped Window Frame ---")
 
         return croppedWindowFrame
     }
