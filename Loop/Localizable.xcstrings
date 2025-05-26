@@ -3014,6 +3014,9 @@
         }
       }
     },
+    "Cycle backward with Shift" : {
+
+    },
     "Cycle Keybind" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3090,6 +3093,9 @@
           }
         }
       }
+    },
+    "Cycling actions backwards with the Shift key only works if Shift isn't part of your trigger key or keybind." : {
+
     },
     "Design" : {
       "extractionState" : "manual",
