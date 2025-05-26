@@ -48,10 +48,6 @@ struct KeybindsConfigurationView: View {
                 .environmentObject(model)
         }
 
-        if isCycleActionPresentInKeybinds {
-            CycleBackwardsView(triggerKey: triggerKey, isOn: $model.cycleBackwardsOnShiftPressed)
-        }
-
         LuminareSection("Settings") {
             LuminareValueAdjuster(
                 "Trigger delay",
@@ -65,6 +61,10 @@ struct KeybindsConfigurationView: View {
 
             LuminareToggle("Double-click to trigger", isOn: $model.doubleClickToTrigger)
             LuminareToggle("Middle-click to trigger", isOn: $model.middleClickTriggersLoop)
+
+            if isCycleActionPresentInKeybinds {
+                CycleBackwardsView(triggerKey: triggerKey, isOn: $model.cycleBackwardsOnShiftPressed)
+            }
         }
 
         LuminareList(

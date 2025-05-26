@@ -3094,9 +3094,6 @@
         }
       }
     },
-    "Cycling actions backwards with the Shift key only works if Shift isn't part of your trigger key or keybind." : {
-
-    },
     "Design" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -19366,6 +19363,9 @@
           }
         }
       }
+    },
+    "Shift-cycling actions work only if\nShift isn't in your trigger key" : {
+
     },
     "Show in dock" : {
       "extractionState" : "manual",
