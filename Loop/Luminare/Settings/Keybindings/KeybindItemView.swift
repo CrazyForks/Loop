@@ -195,8 +195,8 @@ struct KeybindItemView: View {
     /// Checks if there are any existing keybinds with the same key combination
     func hasDuplicateKeybinds() -> Bool {
         Defaults[.keybinds]
-            .filter { $0.keybind == keybind.keybind }
-            .count > 1
+            .count(where: { $0.keybind == keybind.keybind })
+             > 1
     }
 
     func directionPicker() -> some View {

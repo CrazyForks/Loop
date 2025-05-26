@@ -19,21 +19,19 @@ struct CycleBackwardsView: View {
     }
 
     var body: some View {
-        LuminareSection {
-            LuminareToggle("Cycle backward with Shift", info: cycleBackwardsInfoView, isOn: $isOn)
-                .onChange(of: isShiftUsedByTriggerKey) { newValue in
-                    if newValue {
-                        isOn = false
-                    }
+        LuminareToggle("Cycle backward with Shift", info: cycleBackwardsInfoView, isOn: $isOn)
+            .onChange(of: isShiftUsedByTriggerKey) { newValue in
+                if newValue {
+                    isOn = false
                 }
-        }
+            }
     }
 
     private var cycleBackwardsInfoView: LuminareInfoView? {
         guard isShiftUsedByTriggerKey else { return nil }
         return LuminareInfoView(
-            "Cycling actions backwards with the Shift key only works if Shift isn't part of your trigger key or keybind.",
-            .orange
+            "Shift-cycling actions work only\nif Shift isn't in your trigger key",
+            .blue
         )
     }
 }
