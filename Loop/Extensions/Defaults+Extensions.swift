@@ -138,6 +138,15 @@ extension Defaults.Keys {
     /// Reset with `defaults delete com.MrKai77.Loop snapThreshold`
     static let snapThreshold = Key<CGFloat>("snapThreshold", default: 2, iCloud: true)
 
+    /// Adjust with `defaults write com.MrKai77.Loop previewStartingPosition [option]`
+    /// Reset with `defaults delete com.MrKai77.Loop previewStartingPosition`
+    ///
+    /// Available options:
+    /// - `screenCenter`: Center of the screen (default behavior)
+    /// - `radialMenu`: Center of radial menu
+    /// - `actionCenter`: Center of the selected action (e.g. for left half, it will grow from the center of that left half)
+    static let previewStartingPosition = Key<PreviewStartingPosition>("previewStartingPosition", default: .screenCenter, iCloud: true)
+
     // Radial Menu
     // It is not recommended to manually edit these entries yet, as it has not been tested.
     static let radialMenuTop = Key<WindowAction>(

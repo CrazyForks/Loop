@@ -34,7 +34,7 @@ class LoopManager: ObservableObject {
 
     @Published var currentAction: WindowAction = .init(.noAction)
     private var parentCycleAction: WindowAction? = nil
-    private var initialMousePosition: CGPoint = .init()
+    private(set) var initialMousePosition: CGPoint = .init()
     private var angleToMouse: Angle = .init(degrees: 0)
     private var distanceToMouse: CGFloat = 0
 
