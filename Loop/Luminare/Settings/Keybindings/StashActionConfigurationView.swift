@@ -167,8 +167,7 @@ struct StashActionConfigurationView: View {
                             }
                         }
                     ),
-                    columns: action.direction == .stash ? 2 : 3,
-                    roundTop: false
+                    columns: action.direction == .stash ? 2 : 3
                 ) { anchor in
                     IconView(action: anchor.iconAction)
                 }
