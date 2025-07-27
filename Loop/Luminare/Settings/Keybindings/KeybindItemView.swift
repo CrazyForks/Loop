@@ -10,7 +10,9 @@ import Luminare
 import SwiftUI
 
 struct KeybindItemView: View {
-    @Environment(\.hoveringOverLuminareItem) var isHovering
+    @Environment(\.luminareItemBeingHovered) var isHovering
+    @Environment(\.luminareAnimation) var luminareAnimation
+    @Environment(\.luminarePopupPadding) var luminarePopupPadding
 
     @Default(.triggerKey) var triggerKey
     @Binding var keybind: WindowAction
@@ -73,10 +75,10 @@ struct KeybindItemView: View {
                         Button(action: {
                             isConfiguringCustom = true
                         }, label: {
-                            Image(._18PxRuler)
+                            Image(.ruler)
                         })
                         .buttonStyle(.plain)
-                        .luminareModal(isPresented: $isConfiguringCustom) {
+                        .luminareModalWithPredefinedSheetStyle(isPresented: $isConfiguringCustom, isCompact: false) {
                             if keybind.direction == .custom {
                                 CustomActionConfigurationView(action: $keybind, isPresented: $isConfiguringCustom)
                                     .frame(width: 400)
@@ -92,10 +94,10 @@ struct KeybindItemView: View {
                         Button(action: {
                             isConfiguringCycle = true
                         }, label: {
-                            Image(._18PxRepeat4)
+                            Image(.repeat4)
                         })
                         .buttonStyle(.plain)
-                        .luminareModal(isPresented: $isConfiguringCycle) {
+                        .luminareModalWithPredefinedSheetStyle(isPresented: $isConfiguringCycle, isCompact: false) {
                             CycleActionConfigurationView(action: $keybind, isPresented: $isConfiguringCycle)
                                 .frame(width: 400)
                         }
@@ -108,9 +110,10 @@ struct KeybindItemView: View {
             .background {
                 if isHovering {
                     Color.clear
-                        .background(PopoverHolder(isPresented: $isPresented) {
+                        .luminarePopup(isPresented: $isPresented, alignment: .leadingLastTextBaseline) {
                             directionPickerContents(keybind: $keybind.direction)
-                        })
+                        }
+                        .luminareSheetClosesOnDefocus(true)
                 }
             }
 
@@ -119,37 +122,27 @@ struct KeybindItemView: View {
             if let cycleIndex {
                 Text("\(cycleIndex)")
                     .frame(width: 27, height: 27)
-                    .modifier(LuminareBordered())
+                    .modifier(LuminareBorderedModifier())
             } else {
                 HStack(spacing: 6) {
                     let hasConflicts = hasDuplicateKeybinds()
 
                     if hasConflicts {
-                        LuminareInfoView(
-                            "There are other keybinds that conflict with this key combination.",
-                            .red
-                        )
+                        keycorderSection(hasConflicts: true)
+                            .padding(.leading, 4)
+                            .luminarePopover(attachedTo: .topLeading) {
+                                Text("There are other keybinds that conflict with this key combination.")
+                                    .padding(4)
+                            }
+                            .tint(.red)
+                    } else {
+                        keycorderSection(hasConflicts: false)
                     }
-
-                    HStack {
-                        ForEach(triggerKey.sorted().compactMap(\.systemImage), id: \.self) { image in
-                            Text("\(Image(systemName: image))")
-                        }
-                    }
-                    .font(.callout)
-                    .padding(6)
-                    .frame(height: 27)
-                    .modifier(LuminareBordered())
-
-                    Image(systemName: "plus")
-
-                    Keycorder($keybind)
-                        .opacity(hasConflicts ? 0.5 : 1)
                 }
                 .fixedSize()
             }
         }
-        .animation(LuminareConstants.animation, value: keybind)
+        .animation(luminareAnimation, value: keybind)
         .padding(.horizontal, 12)
         .onAppear {
             computeSearchResults()
@@ -183,13 +176,19 @@ struct KeybindItemView: View {
                 HStack(spacing: 8) {
                     IconView(action: keybind)
 
-                    Text(keybind.getName())
-                        .lineLimit(1)
-                        .contentTransition(.numericText())
-                }
-
-                if let info = keybind.direction.infoView {
-                    info
+                    if let info = keybind.direction.infoText {
+                        Text(keybind.getName())
+                            .lineLimit(1)
+                            .padding(.trailing, 4)
+                            .luminarePopover(attachedTo: .topTrailing) {
+                                Text(info)
+                                    .padding(4)
+                            }
+                            .tint(.yellow)
+                    } else {
+                        Text(keybind.getName())
+                            .lineLimit(1)
+                    }
                 }
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -209,7 +208,7 @@ struct KeybindItemView: View {
             Button {
                 isPresented.toggle()
             } label: {
-                Image(._18PxPen2)
+                Image(.pen2)
                     .padding(.vertical, 5) // Increase hitbox size
                     .contentShape(.rect)
                     .padding(.vertical, -5) // So that the picker dropdown doesn't get offsetted by the hitbox
@@ -222,7 +221,7 @@ struct KeybindItemView: View {
     func directionPickerContents(keybind: Binding<WindowDirection>) -> some View {
         VStack(spacing: 0) {
             CustomTextField($searchText)
-                .padding(PopoverPanel.contentPadding * 2)
+                .padding(luminarePopupPadding)
 
             Divider()
 
@@ -235,7 +234,28 @@ struct KeybindItemView: View {
                     IconView(action: .init(item))
                     Text(item.name)
                 }
+                .compositingGroup()
             }
+        }
+        .frame(width: 300, height: 300)
+    }
+
+    func keycorderSection(hasConflicts: Bool) -> some View {
+        HStack(spacing: 6) {
+            HStack {
+                ForEach(triggerKey.sorted().compactMap(\.systemImage), id: \.self) { image in
+                    Text("\(Image(systemName: image))")
+                }
+            }
+            .font(.callout)
+            .padding(6)
+            .frame(height: 27)
+            .modifier(LuminareBorderedModifier())
+
+            Image(systemName: "plus")
+
+            Keycorder($keybind)
+                .opacity(hasConflicts ? 0.5 : 1)
         }
     }
 
@@ -251,8 +271,10 @@ struct KeybindItemView: View {
 }
 
 private struct CompactButtonStyle: ButtonStyle {
-    @Environment(\.hoveringOverLuminareItem) var hoveringOverLuminareItem
+    @Environment(\.luminareItemBeingHovered) private var luminareItemBeingHovered
+    @Environment(\.luminareAnimationFast) private var luminareAnimationFast
     @Environment(\.isEnabled) private var isEnabled: Bool
+
     let elementMinHeight: CGFloat = 25
     @State var isHovering: Bool = false
     let cornerRadius: CGFloat = 6
@@ -260,7 +282,7 @@ private struct CompactButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
-                if configuration.isPressed || isHovering || hoveringOverLuminareItem {
+                if configuration.isPressed || isHovering || luminareItemBeingHovered {
                     backgroundForState(isPressed: configuration.isPressed)
                         .background {
                             RoundedRectangle(cornerRadius: cornerRadius)
@@ -271,7 +293,7 @@ private struct CompactButtonStyle: ButtonStyle {
                 }
             }
             .onHover { isHovering = $0 }
-            .animation(LuminareConstants.fastAnimation, value: [isHovering, hoveringOverLuminareItem])
+            .animation(luminareAnimationFast, value: [isHovering, luminareItemBeingHovered])
             .frame(minHeight: elementMinHeight)
             .opacity(isEnabled ? 1 : 0.5)
     }

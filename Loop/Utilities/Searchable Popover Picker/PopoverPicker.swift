@@ -9,7 +9,8 @@ import Luminare
 import SwiftUI
 
 struct PickerView<Content, V>: View where Content: View, V: Hashable, V: Identifiable {
-    @EnvironmentObject var popover: PopoverPanel
+    @EnvironmentObject var popover: LuminarePopupPanel
+    @Environment(\.luminarePopupPadding) private var luminarePopupPadding
 
     @Binding var selection: V
     @Binding var searchResults: [V]
@@ -34,11 +35,11 @@ struct PickerView<Content, V>: View where Content: View, V: Hashable, V: Identif
 
     var body: some View {
         ScrollViewReader { reader in
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: PopoverPanel.sectionPadding) {
+            ScrollView {
+                LazyVStack(spacing: luminarePopupPadding) {
                     contentStack(reader: reader)
                 }
-                .padding(PopoverPanel.contentPadding)
+                .padding(luminarePopupPadding / 2)
             }
         }
     }
@@ -56,26 +57,44 @@ struct PickerView<Content, V>: View where Content: View, V: Hashable, V: Identif
         .onAppear {
             setupEventMonitor(reader: reader)
             eventMonitor?.start()
-            popover.closeHandler = {
-                eventMonitor?.stop()
-                eventMonitor = nil
-            }
+        }
+        .onDisappear {
+            print("Stopping event monitor")
+            eventMonitor?.stop()
+            eventMonitor = nil
         }
     }
 
     private var sectionsView: some View {
         ForEach(sections) { section in
-            Section(header: Text(section.title).foregroundStyle(.secondary).padding(.leading, PopoverPanel.contentPadding).padding(.top, PopoverPanel.sectionPadding)) {
+            Section {
                 ForEach(section.items, id: \.self) { item in
-                    PopoverPickerItem(selection: $selection, arrowSelection: $arrowSelection, item: item, content: content).id(item)
+                    PopoverPickerItem(
+                        selection: $selection,
+                        arrowSelection: $arrowSelection,
+                        item: item,
+                        content: content
+                    )
+                    .id(item)
                 }
+            } header: {
+                Text(section.title)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, luminarePopupPadding / 2)
+                    .padding(.top, luminarePopupPadding / 2)
             }
         }
     }
 
     private var searchResultsView: some View {
         ForEach(searchResults) { item in
-            PopoverPickerItem(selection: $selection, arrowSelection: $arrowSelection, item: item, content: content).id(item)
+            PopoverPickerItem(
+                selection: $selection,
+                arrowSelection: $arrowSelection,
+                item: item,
+                content: content
+            )
+            .id(item)
         }
     }
 
@@ -106,13 +125,33 @@ struct PickerView<Content, V>: View where Content: View, V: Hashable, V: Identif
 
         let currentIndex = items.firstIndex(where: { $0 == arrowSelection }) ?? (increment ? -1 : items.count)
         let nextIndex = (currentIndex + (increment ? 1 : -1) + items.count) % items.count
-        arrowSelection = items[nextIndex]
-        reader.scrollTo(arrowSelection, anchor: .center)
+
+        /// Ensure nextIndex is valid
+        guard nextIndex >= 0, nextIndex < items.count else {
+            print("Invalid nextIndex: \(nextIndex), items count: \(items.count)")
+            return
+        }
+
+        let newSelection = items[nextIndex]
+        arrowSelection = newSelection
+
+        /// Only scroll if the selection is valid and not nil
+        guard let validSelection = arrowSelection else {
+            print("arrowSelection is nil, skipping scroll")
+            return
+        }
+
+        DispatchQueue.main.async {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                reader.scrollTo(validSelection, anchor: .center)
+            }
+        }
     }
 }
 
 struct PopoverPickerItem<Content, V>: View where Content: View, V: Hashable {
-    @EnvironmentObject var popover: PopoverPanel
+    @EnvironmentObject var popover: LuminarePopupPanel
+    @Environment(\.luminarePopupPadding) private var luminarePopupPadding
 
     @State var isHovering = false
     @Binding var selection: V
@@ -131,7 +170,7 @@ struct PopoverPickerItem<Content, V>: View where Content: View, V: Hashable {
             popover.resignKey()
         } label: {
             content(item)
-                .padding(PopoverPanel.contentPadding)
+                .padding(luminarePopupPadding / 2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(SearchablePickerButtonStyle(isHovering: $isHovering, isActive: $isActive))
@@ -164,8 +203,17 @@ struct PickerSection<V>: Identifiable, Hashable where V: Hashable, V: Identifiab
 }
 
 struct SearchablePickerButtonStyle: ButtonStyle {
-    var cornerRadius: CGFloat {
-        PopoverPanel.cornerRadius - PopoverPanel.contentPadding
+    @Environment(\.luminareAnimationFast) private var animationFast
+    @Environment(\.luminarePopupPadding) private var luminarePopupPadding
+    @Environment(\.luminarePopupCornerRadii) private var luminarePopupCornerRadii
+
+    var cornerRadius: RectangleCornerRadii {
+        .init(
+            topLeading: luminarePopupCornerRadii.topLeading - luminarePopupPadding / 2,
+            bottomLeading: luminarePopupCornerRadii.topLeading - luminarePopupPadding / 2,
+            bottomTrailing: luminarePopupCornerRadii.topLeading - luminarePopupPadding / 2,
+            topTrailing: luminarePopupCornerRadii.topLeading - luminarePopupPadding / 2
+        )
     }
 
     @Binding var isHovering: Bool
@@ -175,22 +223,25 @@ struct SearchablePickerButtonStyle: ButtonStyle {
         configuration.label
             .background {
                 if configuration.isPressed {
-                    Rectangle().foregroundStyle(.quaternary)
+                    Rectangle()
+                        .foregroundStyle(.quaternary)
                 } else if isActive {
-                    Rectangle().foregroundStyle(.quaternary.opacity(0.7))
+                    Rectangle()
+                        .foregroundStyle(.quaternary.opacity(0.7))
                 }
 
                 if isHovering {
-                    Rectangle().foregroundStyle(.quaternary.opacity(0.7))
+                    Rectangle()
+                        .foregroundStyle(.quaternary.opacity(0.7))
                 }
             }
             .overlay {
                 if isActive {
-                    RoundedRectangle(cornerRadius: PopoverPanel.cornerRadius - PopoverPanel.contentPadding)
+                    UnevenRoundedRectangle(cornerRadii: cornerRadius)
                         .strokeBorder(.quaternary, lineWidth: 1)
                 }
             }
-            .animation(LuminareConstants.fastAnimation, value: [isHovering, isActive, configuration.isPressed])
-            .clipShape(.rect(cornerRadius: cornerRadius))
+            .animation(animationFast, value: [isHovering, isActive, configuration.isPressed])
+            .clipShape(.rect(cornerRadii: cornerRadius))
     }
 }

@@ -24,62 +24,77 @@ struct CycleActionConfigurationView: View {
     }
 
     var body: some View {
-        LuminareSection {
-            LuminareTextField("Cycle Keybind", text: Binding(get: { action.name ?? "" }, set: { action.name = $0 }))
-        }
+        VStack(spacing: 12) {
+            LuminareSection(outerPadding: 0) {
+                LuminareTextField("Cycle Keybind", text: Binding(get: { action.name ?? "" }, set: { action.name = $0 }))
+                    .luminareHasBackground(false)
+                    .luminareBordered(false)
+                    .luminareAspectRatio(contentMode: .fill)
+            }
 
-        LuminareList(
-            items: Binding(
-                get: {
-                    if action.cycle == nil {
-                        action.cycle = []
+            LuminareSection(outerPadding: 0) {
+                HStack(spacing: 2) {
+                    Button("Add") {
+                        if action.cycle == nil {
+                            action.cycle = []
+                        }
+
+                        action.cycle?.insert(.init(.noAction), at: 0)
                     }
 
-                    return action.cycle ?? []
-                }, set: { newValue in
-                    action.cycle = newValue
-                }
-            ),
-            selection: $selectedKeybinds,
-            addAction: {
-                if action.cycle == nil {
-                    action.cycle = []
-                }
-
-                action.cycle?.insert(.init(.noAction), at: 0)
-            },
-            content: { item in
-                KeybindItemView(
-                    item,
-                    cycleIndex: action.cycle?.firstIndex(of: item.wrappedValue)
-                )
-                .environmentObject(KeybindsConfigurationModel())
-            },
-            emptyView: {
-                HStack {
-                    Spacer()
-                    VStack {
-                        Text("Nothing to cycle through")
-                            .font(.title3)
-                        Text("Press \"Add\" to add a cycle item")
-                            .font(.caption)
+                    Button("Remove", role: .destructive) {
+                        action.cycle?.removeAll(where: { selectedKeybinds.contains($0) })
                     }
-                    Spacer()
+                    .disabled(selectedKeybinds.isEmpty)
+                    .buttonStyle(.luminareProminent)
                 }
-                .foregroundStyle(.secondary)
-                .padding()
-            },
-            id: \.id,
-            addText: "Add",
-            removeText: "Remove"
-        )
-        .onChange(of: action) { _ in
-            windowAction = action
-        }
 
-        Button("Close") {
-            isPresented = false
+                LuminareList(
+                    items: Binding(
+                        get: {
+                            if action.cycle == nil {
+                                action.cycle = []
+                            }
+
+                            return action.cycle ?? []
+                        }, set: { newValue in
+                            action.cycle = newValue
+                        }
+                    ),
+                    selection: $selectedKeybinds,
+                    id: \.id
+                ) { item in
+                    KeybindItemView(
+                        item,
+                        cycleIndex: action.cycle?.firstIndex(of: item.wrappedValue)
+                    )
+                    .environmentObject(KeybindsConfigurationModel())
+                } emptyView: {
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Text("Nothing to cycle through")
+                                .font(.title3)
+                            Text("Press \"Add\" to add a cycle item")
+                                .font(.caption)
+                        }
+                        Spacer()
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding()
+                }
+                .luminareListRoundedCorner(bottom: .always)
+                .luminareListFixedHeight(until: .infinity)
+            }
+            .onChange(of: action) { _ in
+                windowAction = action
+            }
+
+            Button("Close") {
+                isPresented = false
+            }
+            .luminareAspectRatio(contentMode: .fill)
+            .buttonStyle(.luminareCompact)
         }
-        .buttonStyle(LuminareCompactButtonStyle())
     }
 }

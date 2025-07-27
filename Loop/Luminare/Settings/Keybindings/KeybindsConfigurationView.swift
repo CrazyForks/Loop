@@ -10,22 +10,6 @@ import Luminare
 import SwiftUI
 
 class KeybindsConfigurationModel: ObservableObject {
-    @Published var triggerDelay = Defaults[.triggerDelay] {
-        didSet { Defaults[.triggerDelay] = triggerDelay }
-    }
-
-    @Published var cycleBackwardsOnShiftPressed = Defaults[.cycleBackwardsOnShiftPressed] {
-        didSet { Defaults[.cycleBackwardsOnShiftPressed] = cycleBackwardsOnShiftPressed }
-    }
-
-    @Published var doubleClickToTrigger = Defaults[.doubleClickToTrigger] {
-        didSet { Defaults[.doubleClickToTrigger] = doubleClickToTrigger }
-    }
-
-    @Published var middleClickTriggersLoop = Defaults[.middleClickTriggersLoop] {
-        didSet { Defaults[.middleClickTriggersLoop] = middleClickTriggersLoop }
-    }
-
     @Published var currentEventMonitor: NSEventMonitor?
     @Published var selectedKeybinds = Set<WindowAction>()
 }
@@ -34,6 +18,10 @@ struct KeybindsConfigurationView: View {
     @StateObject private var model = KeybindsConfigurationModel()
 
     @Default(.triggerKey) var triggerKey
+    @Default(.triggerDelay) var triggerDelay
+    @Default(.cycleBackwardsOnShiftPressed) var cycleBackwardsOnShiftPressed
+    @Default(.doubleClickToTrigger) var doubleClickToTrigger
+    @Default(.middleClickTriggersLoop) var middleClickTriggersLoop
     @Default(.keybinds) var keybinds
 
     /// Is there at least one keybind action that is a cycle?
@@ -41,44 +29,68 @@ struct KeybindsConfigurationView: View {
         keybinds.contains(where: { $0.cycle != nil })
     }
 
+    /// Is Shift used in the trigger key?
+    var isShiftUsedByTriggerKey: Bool {
+        triggerKey.contains(.kVK_Shift)
+    }
+
     var body: some View {
-        LuminareSection("Trigger Key", noBorder: true) {
-            // TODO: Make long trigger keys fit in bounds
+        LuminareSection("Trigger Key") {
             TriggerKeycorder($triggerKey)
                 .environmentObject(model)
+                .luminareBordered(true)
         }
+        .luminareBordered(false)
 
         LuminareSection("Settings") {
-            LuminareValueAdjuster(
+            LuminareSlider(
                 "Trigger delay",
-                value: $model.triggerDelay,
-                sliderRange: 0...1,
-                suffix: .init(.init(localized: "Measurement unit: seconds", defaultValue: "s")),
+                value: $triggerDelay,
+                in: 0...1,
                 step: 0.1,
-                lowerClamp: true,
-                decimalPlaces: 1
+                format: .number.precision(.fractionLength(1...1)),
+                clampsLower: true,
+                suffix: .init(.init(localized: "Measurement unit: seconds", defaultValue: "s"))
             )
 
-            LuminareToggle("Double-click to trigger", isOn: $model.doubleClickToTrigger)
-            LuminareToggle("Middle-click to trigger", isOn: $model.middleClickTriggersLoop)
+            LuminareToggle("Double-click to trigger", isOn: $doubleClickToTrigger)
+            LuminareToggle("Middle-click to trigger", isOn: $middleClickTriggersLoop)
 
             if isCycleActionPresentInKeybinds {
-                CycleBackwardsView(triggerKey: triggerKey, isOn: $model.cycleBackwardsOnShiftPressed)
+                LuminareToggle(isOn: $cycleBackwardsOnShiftPressed) {
+                    Text("Cycle backward with Shift")
+                        .padding(.trailing, 4)
+                        .luminarePopover(attachedTo: .topTrailing) {
+                            Text("Cycling actions backward will only work\nif Shift isn't in your trigger key")
+                                .padding(4)
+                        }
+                        .tint(.blue)
+                }
             }
         }
 
-        LuminareList(
-            "Keybinds",
-            items: $keybinds,
-            selection: $model.selectedKeybinds,
-            addAction: {
-                keybinds.insert(.init(.noAction), at: 0)
-            },
-            content: { keybind in
+        LuminareSection("Keybinds") {
+            HStack(spacing: 2) {
+                Button("Add") {
+                    keybinds.insert(.init(.noAction), at: 0)
+                }
+
+                Button("Remove", role: .destructive) {
+                    keybinds.removeAll(where: model.selectedKeybinds.contains)
+                }
+                .disabled(model.selectedKeybinds.isEmpty)
+                .buttonStyle(.luminareProminent)
+                .keyboardShortcut(.delete)
+            }
+
+            LuminareList(
+                items: $keybinds,
+                selection: $model.selectedKeybinds,
+                id: \.id
+            ) { keybind in
                 KeybindItemView(keybind)
                     .environmentObject(model)
-            },
-            emptyView: {
+            } emptyView: {
                 HStack {
                     Spacer()
                     VStack {
@@ -91,10 +103,13 @@ struct KeybindsConfigurationView: View {
                 }
                 .foregroundStyle(.secondary)
                 .padding()
-            },
-            id: \.id,
-            addText: "Add",
-            removeText: "Remove"
-        )
+            }
+            .luminareListRoundedCorner(bottom: .always)
+        }
     }
+}
+
+#Preview {
+    KeybindsConfigurationView()
+        .frame(width: 300)
 }

@@ -11,37 +11,6 @@ import Luminare
 import SwiftUI
 
 class AdvancedConfigurationModel: ObservableObject {
-    @Published var useSystemWindowManagerWhenAvailable = Defaults[.useSystemWindowManagerWhenAvailable] {
-        didSet {
-            Defaults[.useSystemWindowManagerWhenAvailable] = useSystemWindowManagerWhenAvailable
-            Notification.Name.systemWindowManagerStateChanged.post()
-        }
-    }
-
-    @Published var animateWindowResizes = Defaults[.animateWindowResizes] {
-        didSet { Defaults[.animateWindowResizes] = animateWindowResizes }
-    }
-
-    @Published var hideUntilDirectionIsChosen = Defaults[.hideUntilDirectionIsChosen] {
-        didSet { Defaults[.hideUntilDirectionIsChosen] = hideUntilDirectionIsChosen }
-    }
-
-    @Published var disableCursorInteraction = Defaults[.disableCursorInteraction] {
-        didSet { Defaults[.disableCursorInteraction] = disableCursorInteraction }
-    }
-
-    @Published var ignoreFullscreen = Defaults[.ignoreFullscreen] {
-        didSet { Defaults[.ignoreFullscreen] = ignoreFullscreen }
-    }
-
-    @Published var hapticFeedback = Defaults[.hapticFeedback] {
-        didSet { Defaults[.hapticFeedback] = hapticFeedback }
-    }
-
-    @Published var sizeIncrement = Defaults[.sizeIncrement] {
-        didSet { Defaults[.sizeIncrement] = sizeIncrement }
-    }
-
     @Published var didImportSuccessfullyAlert = false
     @Published var didExportSuccessfullyAlert = false
     @Published var didResetSuccessfullyAlert = false
@@ -104,9 +73,7 @@ class AdvancedConfigurationModel: ObservableObject {
         let isAccessibilityGranted = AccessibilityManager.getStatus()
 
         if isAccessibilityAccessGranted != isAccessibilityGranted {
-            withAnimation(LuminareConstants.animation) {
-                isAccessibilityAccessGranted = isAccessibilityGranted
-            }
+            isAccessibilityAccessGranted = isAccessibilityGranted
         }
 
         if isAccessibilityGranted || accessibilityChecks > 60 {
@@ -116,8 +83,19 @@ class AdvancedConfigurationModel: ObservableObject {
 }
 
 struct AdvancedConfigurationView: View {
-    @Environment(\.tintColor) var tintColor
+    @Environment(\.luminareTintColor) var tint
+    @Environment(\.luminareAnimation) var luminareAnimation
+
     @StateObject private var model = AdvancedConfigurationModel()
+
+    @Default(.useSystemWindowManagerWhenAvailable) var useSystemWindowManagerWhenAvailable
+    @Default(.animateWindowResizes) var animateWindowResizes
+    @Default(.hideUntilDirectionIsChosen) var hideUntilDirectionIsChosen
+    @Default(.disableCursorInteraction) var disableCursorInteraction
+    @Default(.ignoreFullscreen) var ignoreFullscreen
+    @Default(.hapticFeedback) var hapticFeedback
+    @Default(.sizeIncrement) var sizeIncrement
+
     let elementHeight: CGFloat = 34
 
     var body: some View {
@@ -129,25 +107,32 @@ struct AdvancedConfigurationView: View {
     func generalSection() -> some View {
         LuminareSection("General") {
             if #available(macOS 15.0, *) {
-                LuminareToggle("Use macOS window manager when available", isOn: $model.useSystemWindowManagerWhenAvailable)
+                LuminareToggle("Use macOS window manager when available", isOn: $useSystemWindowManagerWhenAvailable)
             }
-            LuminareToggle(
-                "Animate window resize",
-                info: .init("This feature is still under development.", .orange),
-                isOn: $model.animateWindowResizes
-            )
-            LuminareToggle("Disable cursor interaction", isOn: $model.disableCursorInteraction)
-            LuminareToggle("Ignore fullscreen windows", isOn: $model.ignoreFullscreen)
-            LuminareToggle("Hide until direction is chosen", isOn: $model.hideUntilDirectionIsChosen)
-            LuminareToggle("Haptic feedback", isOn: $model.hapticFeedback)
 
-            LuminareValueAdjuster(
-                "Size increment", // Description: Used in size adjustment window actions
-                value: $model.sizeIncrement,
-                sliderRange: 5...50,
-                suffix: "px",
+            LuminareToggle(isOn: $animateWindowResizes) {
+                Text("Animate window resize")
+                    .padding(.trailing, 4)
+                    .luminarePopover(attachedTo: .topTrailing) {
+                        Text("This feature is still under development.")
+                            .padding(4)
+                    }
+                    .tint(.orange)
+            }
+
+            LuminareToggle("Disable cursor interaction", isOn: $disableCursorInteraction)
+            LuminareToggle("Ignore fullscreen windows", isOn: $ignoreFullscreen)
+            LuminareToggle("Hide until direction is chosen", isOn: $hideUntilDirectionIsChosen)
+            LuminareToggle("Haptic feedback", isOn: $hapticFeedback)
+
+            LuminareSlider(
+                "Size increment",
+                value: $sizeIncrement.doubleBinding,
+                in: 5...50,
                 step: 4.5,
-                lowerClamp: true
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
         }
     }
@@ -169,7 +154,7 @@ struct AdvancedConfigurationView: View {
 
                         if model.didImportSuccessfullyAlert {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(tintColor())
+                                .foregroundStyle(tint)
                                 .bold()
                         }
                     }
@@ -192,7 +177,7 @@ struct AdvancedConfigurationView: View {
 
                         if model.didExportSuccessfullyAlert {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(tintColor())
+                                .foregroundStyle(tint)
                                 .bold()
                         }
                     }
@@ -201,7 +186,7 @@ struct AdvancedConfigurationView: View {
                     model.exportedSuccessfully()
                 }
 
-                Button {
+                Button(role: .destructive) {
                     Defaults.reset(.keybinds)
                     model.resetSuccessfully()
                 } label: {
@@ -210,12 +195,12 @@ struct AdvancedConfigurationView: View {
 
                         if model.didResetSuccessfullyAlert {
                             Image(systemName: "checkmark")
-                                .foregroundStyle(tintColor())
+                                .foregroundStyle(tint)
                                 .bold()
                         }
                     }
                 }
-                .buttonStyle(LuminareDestructiveButtonStyle())
+                .buttonStyle(.luminareProminent)
             }
         }
     }
@@ -227,31 +212,24 @@ struct AdvancedConfigurationView: View {
         .onReceive(model.accessibilityChecker) { _ in
             model.refreshAccessiblityStatus()
         }
+        .animation(luminareAnimation, value: model.isAccessibilityAccessGranted)
     }
 
     func accessibilityComponent() -> some View {
-        HStack {
-            if model.isAccessibilityAccessGranted {
-                Image(._18PxBadgeCheck2)
-                    .foregroundStyle(tintColor())
+        LuminareButton {
+            HStack {
+                if model.isAccessibilityAccessGranted {
+                    Image(.badgeCheck2)
+                        .foregroundStyle(tint)
+                }
+
+                Text("Accessibility access")
             }
-
-            Text("Accessibility access")
-
-            Spacer()
-
-            Button {
-                model.beginAccessibilityAccessRequest()
-            } label: {
-                Text("Request…")
-                    .frame(height: 30)
-                    .padding(.horizontal, 8)
-            }
-            .disabled(model.isAccessibilityAccessGranted)
-            .buttonStyle(LuminareCompactButtonStyle(extraCompact: true))
+        } content: {
+            Text("Request…")
+        } action: {
+            model.beginAccessibilityAccessRequest()
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 2)
-        .frame(height: elementHeight)
+        .disabled(model.isAccessibilityAccessGranted)
     }
 }

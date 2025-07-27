@@ -11,6 +11,8 @@ import Luminare
 import SwiftUI
 
 struct StashActionConfigurationView: View {
+    @Environment(\.luminareAnimation) private var luminareAnimation
+
     @Binding var windowAction: WindowAction
     @Binding var isPresented: Bool
 
@@ -23,9 +25,9 @@ struct StashActionConfigurationView: View {
         var image: Image {
             switch self {
             case .position:
-                Image(._18PxTableRows3Cols3)
+                Image(.tableRows3Cols3)
             case .size:
-                Image(._18PxSize)
+                Image(.frame)
             }
         }
     }
@@ -50,33 +52,42 @@ struct StashActionConfigurationView: View {
     }
 
     var body: some View {
-        ScreenView(blurred: .constant(action.sizeMode != .custom)) {
-            GeometryReader { geo in
-                ZStack {
-                    if action.sizeMode == .custom {
-                        let frame = action.getFrame(window: nil, bounds: CGRect(origin: .zero, size: geo.size), disablePadding: true)
+        VStack(spacing: 12) {
+            ScreenView(isBlurred: action.sizeMode != .custom) {
+                GeometryReader { geo in
+                    ZStack {
+                        if action.sizeMode == .custom {
+                            let frame = action.getFrame(
+                                window: nil,
+                                bounds: CGRect(origin: .zero, size: geo.size),
+                                disablePadding: true
+                            )
 
-                        blurredWindow()
-                            .frame(width: frame.width, height: frame.height)
-                            .offset(x: frame.origin.x, y: frame.origin.y)
-                            .animation(LuminareConstants.animation, value: frame)
+                            blurredWindow()
+                                .frame(width: frame.width, height: frame.height)
+                                .offset(x: frame.origin.x, y: frame.origin.y)
+                                .animation(luminareAnimation, value: frame)
+                        }
                     }
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                 }
-                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             }
-        }
-        .onChange(of: action) { windowAction = $0 }
+            .onChange(of: action) { windowAction = $0 }
 
-        configurationSections()
-        actionButtons()
+            configurationSections()
+            actionButtons()
+        }
     }
 
     @ViewBuilder private func configurationSections() -> some View {
-        LuminareSection {
-            LuminareTextField("Custom Keybind", text: Binding(get: { action.name ?? "" }, set: { action.name = $0 }))
+        LuminareSection(outerPadding: 0) {
+            LuminareTextField("Stash", text: Binding(get: { action.name ?? "" }, set: { action.name = $0 }))
+                .luminareHasBackground(false)
+                .luminareBordered(false)
+                .luminareAspectRatio(contentMode: .fill)
         }
 
-        LuminareSection {
+        LuminareSection(outerPadding: 0) {
             tabPicker()
         }
 
@@ -87,7 +98,7 @@ struct StashActionConfigurationView: View {
                 sizeConfiguration()
             }
         }
-        .animation(LuminareConstants.animation, value: action.unit)
+        .animation(luminareAnimation, value: action.unit)
         .onAppear {
             if action.unit == nil {
                 action.unit = .percentage
@@ -116,13 +127,19 @@ struct StashActionConfigurationView: View {
     }
 
     @ViewBuilder private func tabPicker() -> some View {
-        LuminarePicker(elements: Tab.allCases, selection: $currentTab, columns: 2, roundBottom: true) { tab in
+        LuminarePicker(
+            elements: Tab.allCases,
+            selection: $currentTab.animation(luminareAnimation),
+            columns: 2
+        ) { tab in
             HStack(spacing: 6) {
                 tab.image
                 Text(tab.rawValue)
             }
             .fixedSize()
         }
+        .luminarePickerRoundedCorner(top: .always, bottom: .always)
+        .frame(height: 40)
     }
 
     @ViewBuilder private func unitToggle() -> some View {
@@ -149,11 +166,12 @@ struct StashActionConfigurationView: View {
 
             Button("Close") { isPresented = false }
         }
-        .buttonStyle(LuminareCompactButtonStyle())
+        .luminareAspectRatio(contentMode: .fill)
+        .buttonStyle(.luminareCompact)
     }
 
     @ViewBuilder private func positionConfiguration() -> some View {
-        LuminareSection {
+        LuminareSection(outerPadding: 0) {
             if action.positionMode ?? .generic == .generic {
                 LuminarePicker(
                     elements: anchors,
@@ -162,17 +180,19 @@ struct StashActionConfigurationView: View {
                             action.anchor ?? defaultAnchor
                         },
                         set: { newValue in
-                            withAnimation(LuminareConstants.animation) {
+                            withAnimation(luminareAnimation) {
                                 action.anchor = newValue
                             }
                         }
                     ),
-                    columns: action.direction == .stash ? 2 : 3
+                    columns: 2
                 ) { anchor in
                     IconView(action: anchor.iconAction)
+                        .equatable()
                 }
+                .luminarePickerRoundedCorner(top: .always, bottom: .always)
             } else {
-                LuminareValueAdjuster(
+                LuminareSlider(
                     "X",
                     value: Binding(
                         get: {
@@ -182,14 +202,13 @@ struct StashActionConfigurationView: View {
                             action.xPoint = $0
                         }
                     ),
-                    sliderRange: action.unit == .percentage ?
-                        0...100 :
-                        0...Double(screenSize.width),
-                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix),
-                    lowerClamp: true
+                    in: action.unit == .percentage ? 0...100 : 0...Double(screenSize.width),
+                    format: .number.precision(.fractionLength(0...0)),
+                    clampsLower: true,
+                    suffix: Text(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix)
                 )
 
-                LuminareValueAdjuster(
+                LuminareSlider(
                     "Y",
                     value: Binding(
                         get: {
@@ -199,44 +218,42 @@ struct StashActionConfigurationView: View {
                             action.yPoint = $0
                         }
                     ),
-                    sliderRange: action.unit == .percentage ?
-                        0...100 :
-                        0...Double(screenSize.height),
-                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix),
-                    lowerClamp: true
+                    in: action.unit == .percentage ? 0...100 : 0...Double(screenSize.height),
+                    format: .number.precision(.fractionLength(0...0)),
+                    clampsLower: true,
+                    suffix: Text(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix)
                 )
             }
         }
     }
 
     @ViewBuilder private func sizeConfiguration() -> some View {
-        LuminareSection {
+        LuminareSection(outerPadding: 0) {
             LuminarePicker(
-                elements: sizeModes,
+                elements: CustomWindowActionSizeMode.allCases,
                 selection: Binding(
                     get: {
                         action.sizeMode ?? .custom
                     },
                     set: { newValue in
-                        withAnimation(LuminareConstants.animation) {
+                        withAnimation(luminareAnimation) {
                             action.sizeMode = newValue
                         }
                     }
                 ),
-                columns: sizeModes.count,
-                roundBottom: action.sizeMode != .custom
+                columns: 3
             ) { mode in
                 VStack(spacing: 4) {
                     mode.image
                     Text(mode.name)
                 }
                 .padding(.vertical, 15)
+                .compositingGroup()
             }
+            .luminarePickerRoundedCorner(top: .always, bottom: action.sizeMode == .custom ? .never : .always)
 
             if action.sizeMode ?? .custom == .custom {
-                unitToggle()
-
-                LuminareValueAdjuster(
+                LuminareSlider(
                     "Width",
                     value: Binding(
                         get: {
@@ -246,14 +263,13 @@ struct StashActionConfigurationView: View {
                             action.width = $0
                         }
                     ),
-                    sliderRange: action.unit == .percentage ?
-                        0...100 :
-                        0...Double(screenSize.width),
-                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix),
-                    lowerClamp: true
+                    in: action.unit == .percentage ? 0...100 : 0...Double(screenSize.width),
+                    format: .number.precision(.fractionLength(0...0)),
+                    clampsLower: true,
+                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix)
                 )
 
-                LuminareValueAdjuster(
+                LuminareSlider(
                     "Height",
                     value: Binding(
                         get: {
@@ -263,11 +279,10 @@ struct StashActionConfigurationView: View {
                             action.height = $0
                         }
                     ),
-                    sliderRange: action.unit == .percentage ?
-                        0...100 :
-                        0...Double(screenSize.width),
-                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix),
-                    lowerClamp: true
+                    in: action.unit == .percentage ? 0...100 : 0...Double(screenSize.height),
+                    format: .number.precision(.fractionLength(0...0)),
+                    clampsLower: true,
+                    suffix: .init(action.unit?.suffix ?? CustomWindowActionUnit.percentage.suffix)
                 )
             }
         }

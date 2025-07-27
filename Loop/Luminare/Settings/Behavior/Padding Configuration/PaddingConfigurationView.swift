@@ -10,13 +10,15 @@ import Luminare
 import SwiftUI
 
 struct PaddingConfigurationView: View {
+    @Environment(\.luminareAnimation) var luminareAnimation
+
     @State var paddingModel = Defaults[.padding]
     @Binding var isPresented: Bool
 
-    let range: ClosedRange<CGFloat> = 0...200
+    let range: ClosedRange<Double> = 0...200
 
     var body: some View {
-        Group {
+        VStack(spacing: 12) {
             ScreenView {
                 PaddingPreviewView($paddingModel)
             }
@@ -40,7 +42,8 @@ struct PaddingConfigurationView: View {
             Button("Close") {
                 isPresented = false
             }
-            .buttonStyle(LuminareCompactButtonStyle())
+            .luminareAspectRatio(contentMode: .fill)
+            .buttonStyle(.luminareCompact)
         }
         .onChange(of: paddingModel) { _ in
             // This fixes some weird animations.
@@ -56,7 +59,7 @@ struct PaddingConfigurationView: View {
                     paddingModel.configureScreenPadding
                 },
                 set: { newValue in
-                    withAnimation(LuminareConstants.animation) {
+                    withAnimation(luminareAnimation) {
                         paddingModel.configureScreenPadding = newValue
 
                         if !paddingModel.configureScreenPadding {
@@ -77,24 +80,24 @@ struct PaddingConfigurationView: View {
                     }
                 }
             ),
-            columns: 2,
-            roundBottom: false
+            columns: 2
         ) { custom in
             HStack(spacing: 6) {
                 if custom {
-                    Image(._18PxSliders)
+                    Image(.sliders)
                     Text("Custom")
                 } else {
-                    Image(._18PxShapeSquare)
+                    Image(.shapeSquare)
                     Text("Simple")
                 }
             }
             .fixedSize()
         }
+        .luminarePickerRoundedCorner(bottom: .always)
     }
 
     func nonScreenPaddingConfiguration() -> some View {
-        LuminareValueAdjuster(
+        LuminareSlider(
             "Padding",
             value: Binding(
                 get: {
@@ -108,66 +111,81 @@ struct PaddingConfigurationView: View {
                     paddingModel.left = $0
                 }
             ),
-            sliderRange: range,
-            suffix: "px",
-            lowerClamp: true
+            in: range,
+            format: .number.precision(.fractionLength(0...0)),
+            clampsLower: true,
+            suffix: Text("px")
         )
     }
 
     func screenSidesPaddingConfiguration() -> some View {
         Group {
-            LuminareValueAdjuster(
+            LuminareSlider(
                 "Top",
-                value: $paddingModel.top,
-                sliderRange: range,
-                suffix: "px",
-                lowerClamp: true,
-                controlSize: .compact
+                value: $paddingModel.top.doubleBinding,
+                in: range,
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
-            LuminareValueAdjuster(
+            .luminareComposeStyle(.inline)
+
+            LuminareSlider(
                 "Bottom",
-                value: $paddingModel.bottom,
-                sliderRange: range,
-                suffix: "px",
-                lowerClamp: true,
-                controlSize: .compact
+                value: $paddingModel.bottom.doubleBinding,
+                in: range,
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
-            LuminareValueAdjuster(
+            .luminareComposeStyle(.inline)
+
+            LuminareSlider(
                 "Right",
-                value: $paddingModel.right,
-                sliderRange: range,
-                suffix: "px",
-                lowerClamp: true,
-                controlSize: .compact
+                value: $paddingModel.right.doubleBinding,
+                in: range,
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
-            LuminareValueAdjuster(
+            .luminareComposeStyle(.inline)
+
+            LuminareSlider(
                 "Left",
-                value: $paddingModel.left,
-                sliderRange: range,
-                suffix: "px",
-                lowerClamp: true,
-                controlSize: .compact
+                value: $paddingModel.left.doubleBinding,
+                in: range,
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
+            .luminareComposeStyle(.inline)
         }
     }
 
     func screenInsetsPaddingConfiguration() -> some View {
         Group {
-            LuminareValueAdjuster(
+            LuminareSlider(
                 "Window gaps",
-                value: $paddingModel.window,
-                sliderRange: 0...100,
-                suffix: "px",
-                lowerClamp: true
+                value: $paddingModel.window.doubleBinding,
+                in: 0...100,
+                format: .number.precision(.fractionLength(0...0)),
+                clampsLower: true,
+                suffix: Text("px")
             )
-            LuminareValueAdjuster(
-                "External bar",
-                info: .init("Use this if you are using a custom menubar."),
-                value: $paddingModel.externalBar,
-                sliderRange: 0...100,
-                suffix: "px",
-                lowerClamp: true
-            )
+
+            LuminareSlider(
+                value: $paddingModel.externalBar.doubleBinding,
+                in: 0...100,
+                format: .number.precision(.fractionLength(0...3)),
+                suffix: Text("px")
+            ) {
+                Text("External bar")
+                    .padding(.trailing, 4)
+                    .luminarePopover(attachedTo: .topTrailing) {
+                        Text("Use this if you are using a custom menubar.")
+                            .padding(4)
+                    }
+            }
         }
     }
 }

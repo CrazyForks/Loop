@@ -56,7 +56,9 @@ extension WindowAction {
     }
 }
 
-struct IconView: View {
+struct IconView: View, Equatable {
+    @Environment(\.luminareAnimationFast) private var luminareAnimationFast
+
     let action: WindowAction
 
     @State private var frame: CGRect = .init(x: 0, y: 0, width: 1, height: 1)
@@ -69,10 +71,15 @@ struct IconView: View {
         if action.direction == .cycle, let first = action.cycle?.first {
             IconView(action: first)
                 .id(first.id)
-                .animation(LuminareConstants.fastAnimation, value: first)
+                .animation(luminareAnimationFast, value: first)
         } else {
-            ZStack {
-                if frame.size.area != 0 {
+            Group {
+                if let icon = action.icon {
+                    icon
+                        .font(.system(size: 8))
+                        .fontWeight(.bold)
+                        .frame(width: size.width, height: size.height, alignment: .center)
+                } else if frame.size.area != 0 {
                     ZStack {
                         RoundedRectangle(cornerRadius: outerCornerRadius - inset)
                             .frame(
@@ -84,32 +91,25 @@ struct IconView: View {
                                 y: frame.origin.y
                             )
                     }
-                    .frame(width: size.width, height: size.height, alignment: .topLeading)
                     .onAppear {
                         refreshFrame()
                     }
                     .onChange(of: action) { _ in
-                        withAnimation(LuminareConstants.fastAnimation) {
+                        withAnimation(luminareAnimationFast) {
                             refreshFrame()
                         }
                     }
+                    .frame(width: size.width, height: size.height, alignment: .topLeading)
+                } else if action.direction == .cycle {
+                    Image(.repeat4)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size.width, height: size.height, alignment: .center)
                 } else {
-                    Group {
-                        if let icon = action.icon {
-                            icon
-                                .font(.system(size: 8))
-                                .fontWeight(.bold)
-                        } else if action.direction == .cycle {
-                            Image(._18PxRepeat4)
-                                .resizable()
-                                .scaledToFit()
-                        } else {
-                            Image(._18PxRuler)
-                                .resizable()
-                                .scaledToFit()
-                        }
-                    }
-                    .frame(width: size.width, height: size.height)
+                    Image(.ruler)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: size.width, height: size.height, alignment: .center)
                 }
             }
             .clipShape(.rect(cornerRadius: outerCornerRadius - inset))
@@ -124,5 +124,9 @@ struct IconView: View {
 
     func refreshFrame() {
         frame = action.getFrame(window: nil, bounds: .init(origin: .zero, size: size), disablePadding: true)
+    }
+
+    static func == (lhs: IconView, rhs: IconView) -> Bool {
+        lhs.action == rhs.action
     }
 }

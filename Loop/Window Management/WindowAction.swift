@@ -116,7 +116,7 @@ struct WindowAction: Codable, Identifiable, Hashable, Equatable, Defaults.Serial
             strippedAction.keybind = []
             strippedAction.name = nil
 
-            if let cycle {
+            if let cycle = action.cycle {
                 strippedAction.cycle = cycle.map { stripNonResizingProperties(of: $0) }
             }
 
@@ -295,6 +295,11 @@ extension WindowAction {
             result = applyFrameMultiplyValues(bounds)
 
         } else if direction.willAdjustSize {
+            // Can't grow or shrink a window that is not resizable
+            if let window, !window.isResizable {
+                return window.frame
+            }
+
             // Return final frame of preview
             if Defaults[.previewVisibility], !isPreview {
                 return LoopManager.lastTargetFrame
@@ -305,6 +310,11 @@ extension WindowAction {
             result = calculateSizeAdjustment(frameToResizeFrom, bounds)
 
         } else if direction.willShrink || direction.willGrow {
+            // Can't grow or shrink a window that is not resizable
+            if let window, !window.isResizable {
+                return window.frame
+            }
+
             // Return final frame of preview
             if Defaults[.previewVisibility], !isPreview {
                 return LoopManager.lastTargetFrame
