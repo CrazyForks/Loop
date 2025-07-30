@@ -70,6 +70,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
 
       - name: 🎟️ Install Provision Profile
+        if: false
         env:
           PROVISION_PROFILE_BASE64: ${{ secrets.PROVISION_PROFILE_BASE64 }}
         run: |
@@ -86,9 +87,7 @@ jobs:
             -scheme "Loop (GH ACTIONS)" \
             -destination 'generic/platform=macOS' \
             -archivePath dist/Loop.xcarchive \
-            -allowProvisioningUpdates \
-            CODE_SIGN_IDENTITY="Developer ID Application: Kai Azim (5F967GYF84)" \
-            DEVELOPMENT_TEAM=5F967GYF84
+            -allowProvisioningUpdates
 
       - name: 🥡 Export Loop.app
         run: |
