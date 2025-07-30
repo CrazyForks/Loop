@@ -88,7 +88,6 @@ jobs:
             -archivePath dist/Loop.xcarchive \
             -allowProvisioningUpdates \
             CODE_SIGN_IDENTITY="Developer ID Application: Kai Azim (5F967GYF84)" \
-            PROVISIONING_PROFILE_SPECIFIER="Loop" \
             DEVELOPMENT_TEAM=5F967GYF84
 
       - name: 🥡 Export Loop.app
