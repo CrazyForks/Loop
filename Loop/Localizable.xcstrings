@@ -1079,6 +1079,9 @@
         }
       }
     },
+    "Always start cycles from first item" : {
+
+    },
     "Animate window resize" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1389,6 +1392,9 @@
           }
         }
       }
+    },
+    "Apply trigger delay on middle-click" : {
+
     },
     "Behavior" : {
       "extractionState" : "manual",
@@ -1784,6 +1790,9 @@
           }
         }
       }
+    },
+    "By default, Loop resumes cycles from where you last left off in each window." : {
+
     },
     "Cannot be enabled when the preview is disabled." : {
       "extractionState" : "manual",
@@ -3099,9 +3108,6 @@
           }
         }
       }
-    },
-    "Cycling actions backward will only work\nif Shift isn't in your trigger key" : {
-
     },
     "Design" : {
       "extractionState" : "manual",
@@ -22872,6 +22878,17 @@
         }
       }
     },
+    "Window Direction/Name: Grow Horizontal" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Grow Horizontal"
+          }
+        }
+      }
+    },
     "Window Direction/Name: Grow Left" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -23099,6 +23116,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "擴張頂部"
+          }
+        }
+      }
+    },
+    "Window Direction/Name: Grow Vertical" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Grow Vertical"
           }
         }
       }
@@ -24951,6 +24979,17 @@
         }
       }
     },
+    "Window Direction/Name: Shrink Horizontal" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shrink Horizontal"
+          }
+        }
+      }
+    },
     "Window Direction/Name: Shrink Left" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -25178,6 +25217,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "壓縮頂部"
+          }
+        }
+      }
+    },
+    "Window Direction/Name: Shrink Vertical" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Shrink Vertical"
           }
         }
       }
