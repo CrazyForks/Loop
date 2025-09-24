@@ -199,7 +199,9 @@ class LuminareManager: NSWindowController, ObservableObject {
 struct LuminareContentView: View {
     @ObservedObject var model: LuminareManager
     @ObservedObject private var accentColorController: AccentColorController = .shared
+
     @Environment(\.luminareAnimation) private var animation
+    @Environment(\.luminareTitleBarHeight) private var titleBarHeight
 
     var body: some View {
         LuminareDividedStack {
@@ -209,6 +211,8 @@ struct LuminareContentView: View {
                 LuminareSidebarSection("\(Bundle.main.appName)", selection: $model.currentTab, items: Tab.loop)
             }
             .frame(width: 260)
+            .padding(.top, titleBarHeight)
+            .luminareBackground()
 
             LuminarePane {
                 model.currentTab.view()
@@ -244,7 +248,6 @@ struct LuminareContentView: View {
                     }
                 }
                 .animation(animation, value: [model.showRadialMenu, model.showPreview])
-                .ignoresSafeArea()
                 .frame(width: 520)
             }
         }
@@ -255,6 +258,7 @@ struct LuminareContentView: View {
             }
         }
         .luminareTint(overridingWith: accentColorController.color1)
+        .ignoresSafeArea()
     }
 }
 
