@@ -133,7 +133,7 @@ enum ScreenUtility {
             return overlaps.min(by: { $0.frame.minY < $1.frame.minY }) ?? screens.min { $0.frame.minY < $1.frame.minY }
         }
     }
-    
+
     /// Finds a screen to a set edge from the screen of reference, without the option to restart the cycle.
     /// - Parameters:
     ///   - screen: the screen of reference, i.e. the current screen.
@@ -155,7 +155,7 @@ enum ScreenUtility {
                 distanceBetweenScreens(for: edge, current: screen, other: $0) < distanceBetweenScreens(for: edge, current: screen, other: $1)
             }
     }
-    
+
     /// Finds an array of overlapping screens in a specific axis.
     /// - Parameters:
     ///   - screen: the screen of reference, i.e. the current screen.
@@ -179,7 +179,7 @@ enum ScreenUtility {
             return overlap >= overlapThreshold
         }
     }
-    
+
     /// Determines the overlap between two screens, either in a vertical or horizonal axis.
     /// - Parameters:
     ///   - edge: the edge of which the other screen should be at.
@@ -194,7 +194,7 @@ enum ScreenUtility {
             min(current.frame.maxX, other.frame.maxX) - max(current.frame.minX, other.frame.minX)
         }
     }
-    
+
     /// Determines if the inputted screen is a candidate to be beside the current screen.
     /// - Parameters:
     ///   - edge: the edge of which the other screen may be positioned at.
@@ -213,7 +213,7 @@ enum ScreenUtility {
             other.frame.maxY <= current.frame.minY + overlapThreshold
         }
     }
-    
+
     /// Determines the distance between two screens.
     /// - Parameters:
     ///   - edge: the edge of which we are trying to find the distance from.
@@ -223,13 +223,13 @@ enum ScreenUtility {
     private static func distanceBetweenScreens(for edge: Edge, current: NSScreen, other: NSScreen) -> CGFloat {
         switch edge {
         case .leading:
-            return current.frame.minX - other.frame.maxX
+            current.frame.minX - other.frame.maxX
         case .trailing:
-            return other.frame.minX - current.frame.maxX
+            other.frame.minX - current.frame.maxX
         case .top:
-            return other.frame.minY - current.frame.maxY
+            other.frame.minY - current.frame.maxY
         case .bottom:
-            return current.frame.minY - other.frame.maxY
+            current.frame.minY - other.frame.maxY
         }
     }
 }
