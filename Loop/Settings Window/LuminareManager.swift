@@ -131,7 +131,7 @@ class LuminareManager: NSWindowController, ObservableObject {
 
         let window = LuminareWindow {
             LuminareContentView(model: self)
-                .frame(height: 570) // Does not include titlebar height
+                .frame(height: 620)
         }
 
         self.window = window

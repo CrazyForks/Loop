@@ -66,7 +66,7 @@ struct KeybindItemView: View {
     }
 
     var body: some View {
-        HStack {
+        ZStack {
             HStack {
                 label()
 
@@ -116,31 +116,33 @@ struct KeybindItemView: View {
                         .luminareSheetClosesOnDefocus(true)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer()
+            HStack {
+                if let cycleIndex {
+                    Text("\(cycleIndex)")
+                        .frame(width: 27, height: 27)
+                        .modifier(LuminareBorderedModifier())
+                } else {
+                    HStack(spacing: 6) {
+                        let hasConflicts = hasDuplicateKeybinds()
 
-            if let cycleIndex {
-                Text("\(cycleIndex)")
-                    .frame(width: 27, height: 27)
-                    .modifier(LuminareBorderedModifier())
-            } else {
-                HStack(spacing: 6) {
-                    let hasConflicts = hasDuplicateKeybinds()
-
-                    if hasConflicts {
-                        keycorderSection(hasConflicts: true)
-                            .padding(.leading, 4)
-                            .luminarePopover(attachedTo: .topLeading) {
-                                Text("There are other keybinds that conflict with this key combination.")
-                                    .padding(6)
-                            }
-                            .luminareTint(overridingWith: .red)
-                    } else {
-                        keycorderSection(hasConflicts: false)
+                        if hasConflicts {
+                            keycorderSection(hasConflicts: true)
+                                .padding(.leading, 4)
+                                .luminarePopover(attachedTo: .topLeading) {
+                                    Text("There are other keybinds that conflict with this key combination.")
+                                        .padding(6)
+                                }
+                                .luminareTint(overridingWith: .red)
+                        } else {
+                            keycorderSection(hasConflicts: false)
+                        }
                     }
+                    .fixedSize()
                 }
-                .fixedSize()
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .animation(luminareAnimation, value: action)
         .padding(.horizontal, 12)
