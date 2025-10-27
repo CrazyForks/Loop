@@ -99,7 +99,7 @@
 
 import Defaults
 import Foundation
-import os.log
+import OSLog
 import SwiftUI
 
 /// Handles URL scheme commands for the Loop application
@@ -140,7 +140,7 @@ final class URLCommandHandler {
     // MARK: - Properties
 
     /// Logger for debugging and error tracking
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.loop", category: "URLHandler")
+    private let logger = Logger(category: "URLHandler")
 
     /// Tracks the last active window for context preservation
     private var lastActiveWindow: Window?
@@ -175,7 +175,7 @@ final class URLCommandHandler {
         if currentCommand?.contains("/list") == true {
             outputBuffer.append(output)
         } else {
-            print(output)
+            logger.info("\(output)")
         }
         logger.debug("\(message, privacy: .public)")
     }
@@ -196,8 +196,8 @@ final class URLCommandHandler {
             outputBuffer.append(title)
             outputBuffer.append(contentsOf: formattedItems)
         } else {
-            print("\n\(title)")
-            formattedItems.forEach { print($0) }
+            logger.info("\n\(title)")
+            formattedItems.forEach { logger.info("\($0)") }
         }
     }
 
@@ -234,8 +234,10 @@ final class URLCommandHandler {
             }
         } catch {
             logger.error("Failed to write output: \(error.localizedDescription)")
+
             // Fallback to direct console output if file operations fail
-            print(outputBuffer.joined(separator: "\n"))
+            // swiftformat:disable:next redundantSelf
+            logger.info("\(self.outputBuffer.joined(separator: "\n"))")
         }
 
         outputBuffer.removeAll()

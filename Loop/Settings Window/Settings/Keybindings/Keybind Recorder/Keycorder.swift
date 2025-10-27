@@ -22,7 +22,7 @@ struct Keycorder: View {
     @State private var selectionKeybind: Set<CGKeyCode>
     @Binding private var direction: WindowDirection
 
-    @State private var eventMonitor: NSEventMonitor?
+    @State private var eventMonitor: LocalEventMonitor?
     @State private var shouldShake: Bool = false
     @State private var shouldError: Bool = false
     @State private var errorMessage: LocalizedStringKey = .init(String("")) // We use Text here for String interpolation with images
@@ -58,7 +58,7 @@ struct Keycorder: View {
                     }
 
                     ForEach(sortedKeys, id: \.self) { key in
-                        if let systemImage = key.systemImage {
+                        if let systemImage = key.modifierSystemImage {
                             Text("\(Image(systemName: systemImage))")
                         } else if let humanReadable = key.humanReadable {
                             Text(humanReadable)
@@ -104,7 +104,7 @@ struct Keycorder: View {
     func startObservingKeys() {
         selectionKeybind = []
         isActive = true
-        eventMonitor = NSEventMonitor(scope: .local, eventMask: [.keyDown, .keyUp]) { event in
+        eventMonitor = LocalEventMonitor(events: [.keyDown, .keyUp]) { event in
             // Handle regular key presses first
             if event.type == .keyDown, !event.isARepeat {
                 if event.keyCode == .kVK_Escape {
@@ -131,27 +131,12 @@ struct Keycorder: View {
     func handleKeyDown(with event: NSEvent) {
         /// Get current selected keys that aren't modifiers
         let currentKeys = selectionKeybind + [event.keyCode]
-            .filter { !$0.isModifier }
-            .map(\.baseKey)
+            .map { $0.baseKey(flags: event.modifierFlags) }
 
-        /// Get current modifiers that are actually pressed
-        let modifierMapping: [(NSEvent.ModifierFlags, CGKeyCode)] = [
-            (.command, .kVK_Command),
-            (.option, .kVK_Option),
-            (.control, .kVK_Control),
-            (.shift, .kVK_Shift),
-            (.function, .kVK_Function)
-        ]
+        let flags = CGEventFlags(cocoaFlags: event.modifierFlags)
 
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let currentModifiers = Set(
-            modifierMapping
-                .filter { flags.contains($0.0) && $0.1.isPressed }
-                .map(\.1)
-        )
-
-        // Filter out trigger keys
-        let validModifiers = currentModifiers.filter {
+        // Filter out trigger keys from flags
+        let validModifiers = flags.keyCodes.filter {
             !Defaults[.triggerKey]
                 .map(\.baseModifier)
                 .contains($0)

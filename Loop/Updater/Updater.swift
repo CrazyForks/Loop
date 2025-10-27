@@ -19,7 +19,7 @@ final class Updater: ObservableObject {
     @Published private(set) var changelog: [(title: String, body: [ChangelogNote])] = .init()
     @Published private(set) var updatesEnabled: Bool = Updater.checkIfUpdatesEnabled()
 
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.loop", category: "Updater")
+    private let logger = Logger(category: "Updater")
     private var windowController: NSWindowController?
     private var includeDevelopmentVersions: Bool { Defaults[.includeDevelopmentVersions] }
 
@@ -332,7 +332,7 @@ final class Updater: ObservableObject {
             let (fileURL, _) = try await URLSession.shared.download(from: asset.browserDownloadURL)
             try FileManager.default.moveItem(at: fileURL, to: destinationURL)
         } catch {
-            logger.error("Error: \(error.localizedDescription)")
+            logger.error("Failed to download update: \(error.localizedDescription)")
         }
     }
 

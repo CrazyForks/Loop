@@ -4,11 +4,12 @@
 //
 //  Created by Kai Azim on 2023-06-25.
 //
-// From https://gist.github.com/chrispaynter/07c9b16219c3d58f57a6e2b0249db4bf (but edited a lot)
 
 import Carbon
 import CoreGraphics
 import SwiftUI
+
+// MARK: Key definitions (Raw codes are available in HIToolbox.framework's Events.h
 
 extension CGKeyCode {
     static let kVK_ANSI_A: CGKeyCode = 0x00
@@ -127,11 +128,7 @@ extension CGKeyCode {
     static let kVK_DownArrow: CGKeyCode = 0x7D
     static let kVK_UpArrow: CGKeyCode = 0x7E
 
-    // When the globe key is being pressed
-    static let kVK_LeftArrow_Globe: CGKeyCode = 0x73
-    static let kVK_RightArrow_Globe: CGKeyCode = 0x77
-    static let kVK_DownArrow_Globe: CGKeyCode = 0x79
-    static let kVK_UpArrow_Globe: CGKeyCode = 0x74
+    static let kVK_Globe_Emoji: CGKeyCode = 0xB3
 
     // ISO keyboards only
     static let kVK_ISO_Section: CGKeyCode = 0x0A
@@ -142,17 +139,29 @@ extension CGKeyCode {
     static let kVK_JIS_KeypadComma: CGKeyCode = 0x5F
     static let kVK_JIS_Eisu: CGKeyCode = 0x66
     static let kVK_JIS_Kana: CGKeyCode = 0x68
+}
 
+// MARK: Base key conversion and computed properties
+
+extension CGKeyCode {
     // Some keycodes seem to alter when a modifier key (ex. the globe key) is being pressed.
-    var baseKey: CGKeyCode {
-        switch self {
-        case .kVK_ANSI_KeypadEnter: CGKeyCode.kVK_Return
-        case .kVK_LeftArrow_Globe: CGKeyCode.kVK_LeftArrow
-        case .kVK_RightArrow_Globe: CGKeyCode.kVK_RightArrow
-        case .kVK_DownArrow_Globe: CGKeyCode.kVK_DownArrow
-        case .kVK_UpArrow_Globe: CGKeyCode.kVK_UpArrow
-        default: self
+    func baseKey(flags: NSEvent.ModifierFlags) -> CGKeyCode {
+        if self == .kVK_ANSI_KeypadEnter {
+            return .kVK_Return
         }
+
+        if flags.contains(.function) {
+            switch self {
+            case .kVK_Home: return .kVK_LeftArrow
+            case .kVK_End: return .kVK_RightArrow
+            case .kVK_PageDown: return .kVK_DownArrow
+            case .kVK_PageUp: return .kVK_UpArrow
+            case .kVK_ForwardDelete: return .kVK_Delete
+            default: break
+            }
+        }
+
+        return self
     }
 
     var baseModifier: CGKeyCode {
@@ -169,16 +178,32 @@ extension CGKeyCode {
         (.kVK_RightCommand ... .kVK_Function).contains(self)
     }
 
-    var isOnRightSide: Bool {
-        [.kVK_RightCommand, .kVK_RightControl, .kVK_RightOption, .kVK_RightShift].contains(self)
+    var isModifierOnRightSide: Bool {
+        let rightModifiers: Set<CGKeyCode> = [.kVK_RightCommand, .kVK_RightControl, .kVK_RightOption, .kVK_RightShift]
+        return rightModifiers.contains(self)
     }
 
-    var isPressed: Bool {
-        CGEventSource.keyState(.combinedSessionState, key: self)
+    var isArrowKey: Bool {
+        let arrowKeys: Set<CGKeyCode> = [.kVK_LeftArrow, .kVK_RightArrow, .kVK_DownArrow, .kVK_UpArrow]
+        return arrowKeys.contains(self)
     }
 
+    var isFKey: Bool {
+        let fKeys: Set<CGKeyCode> = [
+            .kVK_F1, .kVK_F2, .kVK_F3, .kVK_F4, .kVK_F5,
+            .kVK_F6, .kVK_F7, .kVK_F8, .kVK_F9, .kVK_F10,
+            .kVK_F11, .kVK_F12, .kVK_F13, .kVK_F14, .kVK_F15,
+            .kVK_F16, .kVK_F17, .kVK_F18, .kVK_F19, .kVK_F20
+        ]
+        return fKeys.contains(self)
+    }
+}
+
+// MARK: Stringification of keycodes
+
+extension CGKeyCode {
     // From https://github.com/sindresorhus/KeyboardShortcuts/ but edited a bit
-    static let keyToString: [CGKeyCode: String] = [
+    private static let keyToString: [CGKeyCode: String] = [
         .kVK_Return: "↩",
         .kVK_Delete: "⌫",
         .kVK_ForwardDelete: "⌦",
@@ -240,13 +265,21 @@ extension CGKeyCode {
     ]
 
     // Make sure to use baseModifier before using this!
-    static let modifierToImage: [CGKeyCode: String] = [
+    private static let modifierToImage: [CGKeyCode: String] = [
         .kVK_Function: "globe",
         .kVK_Shift: "shift",
         .kVK_Command: "command",
         .kVK_Control: "control",
         .kVK_Option: "option"
     ]
+
+    var modifierSystemImage: String? {
+        if let systemName = CGKeyCode.modifierToImage[baseModifier] {
+            systemName
+        } else {
+            nil
+        }
+    }
 
     // Big thanks to https://github.com/sindresorhus/KeyboardShortcuts/
     var humanReadable: String? {
@@ -293,7 +326,11 @@ extension CGKeyCode {
             return String(utf16CodeUnits: characters, count: length)
         }
     }
+}
 
+// MARK: System Keybinds
+
+extension CGKeyCode {
     static var systemKeybinds: [Set<CGKeyCode>] {
         var shortcutsUnmanaged: Unmanaged<CFArray>?
         guard
@@ -304,57 +341,17 @@ extension CGKeyCode {
             return []
         }
 
-        return shortcuts.compactMap {
+        return shortcuts.compactMap { shortcut -> Set<CGKeyCode>? in
             guard
-                ($0[kHISymbolicHotKeyEnabled] as? Bool) == true,
-                let carbonKeyCode = $0[kHISymbolicHotKeyCode] as? CGKeyCode,
-                let carbonModifiers = $0[kHISymbolicHotKeyModifiers] as? UInt
+                (shortcut[kHISymbolicHotKeyEnabled] as? Bool) == true,
+                let carbonKeyCode = shortcut[kHISymbolicHotKeyCode] as? CGKeyCode,
+                let carbonModifiers = shortcut[kHISymbolicHotKeyModifiers] as? UInt64
             else {
                 return nil
             }
 
-            let modifiers = NSEvent.ModifierFlags(rawValue: carbonModifiers)
-            var result = modifiers.convertToCGKeyCode()
-            result.insert(carbonKeyCode)
-
-            return result
+            let modifiers = CGEventFlags(rawValue: carbonModifiers).keyCodes
+            return modifiers.union([carbonKeyCode])
         }
-    }
-
-    var systemImage: String? {
-        if let systemName = CGKeyCode.modifierToImage[baseModifier] {
-            systemName
-        } else {
-            nil
-        }
-    }
-}
-
-extension NSEvent.ModifierFlags {
-    func convertToCGKeyCode() -> Set<CGKeyCode> {
-        let deviceIndependent = intersection(.deviceIndependentFlagsMask)
-        var result: Set<CGKeyCode> = []
-
-        if deviceIndependent.contains(.command) {
-            result.insert(.kVK_Command)
-        }
-
-        if deviceIndependent.contains(.shift) {
-            result.insert(.kVK_Shift)
-        }
-
-        if deviceIndependent.contains(.option) {
-            result.insert(.kVK_Option)
-        }
-
-        if deviceIndependent.contains(.control) {
-            result.insert(.kVK_Control)
-        }
-
-        if deviceIndependent.contains(.function) {
-            result.insert(.kVK_Function)
-        }
-
-        return result
     }
 }

@@ -9,8 +9,8 @@ import Defaults
 import Luminare
 import SwiftUI
 
-class KeybindsConfigurationModel: ObservableObject {
-    @Published var currentEventMonitor: NSEventMonitor?
+final class KeybindsConfigurationModel: ObservableObject {
+    @Published var currentEventMonitor: LocalEventMonitor?
     @Published var selectedKeybinds = Set<WindowAction>()
 }
 
@@ -40,7 +40,7 @@ struct KeybindsConfigurationView: View {
 
     /// Is Shift used in the trigger key?
     private var isShiftUsedByTriggerKey: Bool {
-        triggerKey.map(\.baseKey).contains(.kVK_Shift)
+        triggerKey.map(\.baseModifier).contains(.kVK_Shift)
     }
 
     private var showMiddleClickTriggerDelayOption: Bool {

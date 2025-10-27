@@ -9,6 +9,9 @@ import Defaults
 import OSLog
 import SwiftUI
 
+/// In charge of processing and storing an up-to-date version of the user's accent color(s), according to their settings.
+/// Automatically refreshes when the user updates the following preferences: `accentColorMode`, `customAccentColor`, `useGradient` and `gradientColor`.
+@MainActor
 final class AccentColorController: ObservableObject {
     static let shared = AccentColorController()
 
@@ -17,7 +20,7 @@ final class AccentColorController: ObservableObject {
 
     private let wallpaperProcessor = WallpaperProcessor()
     private var observationTask: Task<(), Never>?
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.loop", category: "AccentColorController")
+    private let logger = Logger(category: "AccentColorController")
 
     private init() {
         self.observationTask = Task { [weak self] in
@@ -44,7 +47,6 @@ final class AccentColorController: ObservableObject {
         observationTask?.cancel()
     }
 
-    @MainActor
     func refresh() async {
         switch Defaults[.accentColorMode] {
         case .system:

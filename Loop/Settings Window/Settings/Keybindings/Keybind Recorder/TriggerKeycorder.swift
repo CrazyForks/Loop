@@ -17,7 +17,7 @@ struct TriggerKeycorder: View {
     @Binding private var validCurrentKey: Set<CGKeyCode>
     @State private var selectionKey: Set<CGKeyCode>
 
-    @State private var eventMonitor: NSEventMonitor?
+    @State private var eventMonitor: LocalEventMonitor?
     @State private var shouldShake: Bool = false
     @State private var isHovering: Bool = false
     @State private var isActive: Bool = false
@@ -41,9 +41,9 @@ struct TriggerKeycorder: View {
                 } else {
                     HStack(spacing: 12) {
                         ForEach(selectionKey.sorted(), id: \.self) { key in
-                            let keyText: LocalizedStringKey = key.isOnRightSide ?
-                                "Right \(Image(systemName: key.systemImage ?? "exclamationmark.circle.fill"))" :
-                                "Left \(Image(systemName: key.systemImage ?? "exclamationmark.circle.fill"))"
+                            let keyText: LocalizedStringKey = key.isModifierOnRightSide ?
+                                "Right \(Image(systemName: key.modifierSystemImage ?? "exclamationmark.circle.fill"))" :
+                                "Left \(Image(systemName: key.modifierSystemImage ?? "exclamationmark.circle.fill"))"
 
                             Text(keyText)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -102,34 +102,24 @@ struct TriggerKeycorder: View {
         isActive = true
 
         // So that if doesn't interfere with the key detection here
-        LoopManager.shared.triggerKeyObserver.start(scope: .global)
+        LoopManager.shared.keybindObserver.stop()
 
-        eventMonitor = NSEventMonitor(scope: .local, eventMask: [.keyDown, .flagsChanged]) { event in
+        eventMonitor = LocalEventMonitor(events: [.keyDown, .flagsChanged]) { event in
             // keyDown event is only used to track escape key
-            if event.type == .keyDown, event.keyCode == CGKeyCode.kVK_Escape {
+            if event.keyCode == CGKeyCode.kVK_Escape {
                 finishedObservingKeys(wasForced: true)
             }
 
-            if CGKeyCode.modifierToImage.contains(where: { $0.key == event.keyCode.baseModifier }) {
-                selectionKey.insert(event.keyCode)
-            }
+            let flags = CGEventFlags(cocoaFlags: event.modifierFlags)
+            let keycodes = flags.keyCodes
+            selectionKey.formUnion(keycodes)
 
-            // Backup system in case keys are pressed at the exact same time
-            let flags = event.modifierFlags.convertToCGKeyCode()
-            if flags.count != selectionKey.count {
-                for key in flags where CGKeyCode.modifierToImage.contains(where: { $0.key == key }) {
-                    if !self.selectionKey.map(\.baseModifier).contains(key) {
-                        self.selectionKey.insert(key)
-                    }
-                }
-            }
-
-            if event.modifierFlags.wasKeyUp, !selectionKey.isEmpty {
+            if keycodes.isEmpty, !selectionKey.isEmpty {
                 finishedObservingKeys()
                 return nil
             }
 
-            if !event.modifierFlags.wasKeyUp, selectionKey.isEmpty {
+            if !keycodes.isEmpty, selectionKey.isEmpty {
                 shouldShake.toggle()
             }
 
@@ -161,6 +151,7 @@ struct TriggerKeycorder: View {
 
         eventMonitor?.stop()
         eventMonitor = nil
-        LoopManager.shared.triggerKeyObserver.start(scope: .all)
+
+        LoopManager.shared.keybindObserver.start()
     }
 }

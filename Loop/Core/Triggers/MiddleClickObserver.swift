@@ -8,14 +8,14 @@
 import AppKit
 import Defaults
 
-/// Reads middle-click events using a CGEventMonitor, and triggers Loop open/close callbacks, when appropriate.
-final class MiddleClickObserver: LoopTrigger {
+/// Reads middle-click events using a PassiveEventMonitor, and triggers Loop open/close callbacks, when appropriate.
+final class MiddleClickObserver {
     // Callbacks
     private let openCallback: () -> ()
     private let closeCallback: () -> ()
 
     // State-tracking
-    private var monitor: EventMonitor?
+    private var monitor: PassiveEventMonitor?
     private var triggerDelayTimer: Task<(), Never>?
 
     // Defaults
@@ -36,16 +36,20 @@ final class MiddleClickObserver: LoopTrigger {
         self.closeCallback = closeCallback
     }
 
+    @MainActor
     func start() {
         stop()
 
-        monitor = CGEventMonitor(
-            eventMask: [.otherMouseDown, .otherMouseUp],
-            callback: handleOtherMouseKeypress(_:)
+        let monitor = PassiveEventMonitor(
+            events: [.otherMouseDown, .otherMouseUp],
+            callback: handleOtherMouseKeypress
         )
-        monitor?.start()
+        monitor.start()
+
+        self.monitor = monitor
     }
 
+    @MainActor
     func stop() {
         monitor?.stop()
         monitor = nil
@@ -53,24 +57,23 @@ final class MiddleClickObserver: LoopTrigger {
 
     // MARK: Private
 
-    private func handleOtherMouseKeypress(_ event: CGEvent) -> Unmanaged<CGEvent>? {
-        guard middleClickTriggersLoop else {
-            return Unmanaged.passUnretained(event)
-        }
-
-        if event.type == .otherMouseDown,
-           event.getIntegerValueField(.mouseEventButtonNumber) == 2 {
-            if useTriggerDelay {
-                startTriggerDelayTimer()
-            } else {
-                openCallback()
+    private func handleOtherMouseKeypress(_ event: CGEvent) {
+        Task { @MainActor in
+            guard middleClickTriggersLoop else {
+                return
             }
 
-            return Unmanaged.passUnretained(event)
-        } else {
-            triggerDelayTimer?.cancel()
-            closeCallback()
-            return Unmanaged.passUnretained(event)
+            if event.type == .otherMouseDown,
+               event.getIntegerValueField(.mouseEventButtonNumber) == 2 {
+                if useTriggerDelay {
+                    startTriggerDelayTimer()
+                } else {
+                    openCallback()
+                }
+            } else {
+                triggerDelayTimer?.cancel()
+                closeCallback()
+            }
         }
     }
 

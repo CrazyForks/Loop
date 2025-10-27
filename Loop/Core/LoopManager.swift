@@ -6,6 +6,7 @@
 //
 
 import Defaults
+import OSLog
 import SwiftUI
 
 // MARK: - LoopManager
@@ -14,17 +15,19 @@ final class LoopManager: ObservableObject {
     static let shared = LoopManager()
     private init() {}
 
+    private let logger = Logger(category: "LoopManager")
+
     // Size Adjustment
     static var sidesToAdjust: Edge.Set?
     static var lastTargetFrame: CGRect = .zero
 
-    private let keybindMonitor = KeybindMonitor.shared
     private let radialMenuController = RadialMenuController()
     private let previewController = PreviewController()
 
-    private(set) lazy var triggerKeyObserver = TriggerKeybindObserver(
+    private(set) lazy var keybindObserver = KeybindObserver(
         openCallback: { [weak self] in self?.openLoop(startingAction: $0) },
-        closeCallback: { [weak self] in self?.closeLoop(forceClose: false) }
+        closeCallback: { [weak self] in self?.closeLoop(forceClose: $0) },
+        checkIfLoopOpen: { [weak self] in self?.isLoopActive ?? false }
     )
 
     private(set) lazy var middleClickObserver = MiddleClickObserver(
@@ -32,13 +35,22 @@ final class LoopManager: ObservableObject {
         closeCallback: { [weak self] in self?.closeLoop(forceClose: false) }
     )
 
-    private var isLoopActive: Bool = false
+    private(set) lazy var mouseMovedEventMonitor = PassiveEventMonitor(
+        events: [.mouseMoved],
+        callback: mouseMoved
+    )
+
+    private(set) lazy var leftClickMonitor = PassiveEventMonitor(
+        events: [.leftMouseDown],
+        callback: leftMouseDown
+    )
+
+    private var accessibilityCheckerTask: Task<(), Never>?
+
+    private(set) var isLoopActive: Bool = false
     private var targetWindow: Window?
     private var screenToResizeOn: NSScreen?
     var isShiftKeyPressed: Bool = false
-
-    private var mouseMovedEventMonitor: EventMonitor?
-    private var leftClickMonitor: EventMonitor?
 
     @Published var currentAction: WindowAction = .init(.noAction)
     private var parentCycleAction: WindowAction?
@@ -47,14 +59,21 @@ final class LoopManager: ObservableObject {
     private var distanceToMouse: CGFloat = 0
 
     func start() {
-        mouseMovedEventMonitor = NSEventMonitor(
-            scope: .all,
-            eventMask: [.mouseMoved, .otherMouseDragged],
-            handler: mouseMoved(_:)
-        )
+        accessibilityCheckerTask = Task(priority: .background) { [weak self] in
+            for await status in AccessibilityManager.shared.stream(initial: true) {
+                guard let self, !Task.isCancelled else {
+                    return
+                }
 
-        triggerKeyObserver.start(scope: .all)
-        middleClickObserver.start()
+                if status {
+                    await keybindObserver.start()
+                    await middleClickObserver.start()
+                } else {
+                    await keybindObserver.stop()
+                    await middleClickObserver.stop()
+                }
+            }
+        }
     }
 }
 
@@ -62,7 +81,7 @@ final class LoopManager: ObservableObject {
 
 extension LoopManager {
     private func openLoop(startingAction: WindowAction?) {
-        guard AccessibilityManager.getStatus() else {
+        guard AccessibilityManager.shared.isGranted else {
             return
         }
 
@@ -71,9 +90,9 @@ extension LoopManager {
             /// This happens because Karabiner-Elements sends modifier keys and other keys as separate, rapid events.
             /// As a result, Loop might be opened before the full keybind is pressed.
             /// In these cases, we can simply update the action instead of reopening the Loop.
-            /// Enabling keybindMonitor was considered as a workaround, but it doesn't start quickly enough.
+            /// Enabling keybindObserver was considered as a workaround, but it doesn't start quickly enough.
             /// Although Karabiner-Elements sends key events separately, they arrive in quick succession.
-            if let startingAction, currentAction.direction == .noAction {
+            if let startingAction {
                 changeAction(startingAction, disableHapticFeedback: true)
             }
             return
@@ -104,26 +123,10 @@ extension LoopManager {
         initialMousePosition = NSEvent.mouseLocation
         screenToResizeOn = Defaults[.useScreenWithCursor] ? NSScreen.screenWithMouse : NSScreen.main
         isShiftKeyPressed = false
-        keybindMonitor.start()
-
-        leftClickMonitor = CGEventMonitor(
-            eventMask: [.leftMouseDown],
-            callback: { [weak self] cgEvent in
-                guard let self, isLoopActive, currentAction.direction != .noAction else {
-                    return Unmanaged.passUnretained(cgEvent)
-                }
-
-                if cgEvent.type == .leftMouseDown,
-                   let parentCycleAction {
-                    changeAction(parentCycleAction, disableHapticFeedback: true)
-                }
-
-                return nil
-            }
-        )
 
         if !Defaults[.disableCursorInteraction] {
-            mouseMovedEventMonitor?.start()
+            mouseMovedEventMonitor.start()
+            leftClickMonitor.start()
         }
 
         if !Defaults[.hideUntilDirectionIsChosen] {
@@ -146,19 +149,13 @@ extension LoopManager {
         }
     }
 
-    // Internal method to force close the loop without applying changes
-    func forceCloseLoop() {
-        closeLoop(forceClose: true)
-    }
-
     private func closeLoop(forceClose: Bool) {
         guard isLoopActive == true else { return }
 
         closeWindows()
 
-        keybindMonitor.stop()
-        mouseMovedEventMonitor?.stop()
-        leftClickMonitor?.stop()
+        mouseMovedEventMonitor.stop()
+        leftClickMonitor.stop()
 
         if let targetWindow,
            let screenToResizeOn,
@@ -221,7 +218,7 @@ extension LoopManager {
     ///   - triggeredFromScreenChange: If this action was triggered from a screen change, this will prevent cycle keybinds from infinitely changing screens.
     ///   - disableHapticFeedback: This will prevent haptic feedback.
     ///   - canAdvanceCycle: This will prevent the cycle from advancing if set to false. This is currently used when changing actions via the radial menu.
-    func changeAction(
+    private func changeAction(
         _ newAction: WindowAction,
         triggeredFromScreenChange: Bool = false,
         disableHapticFeedback: Bool = false,
@@ -245,7 +242,7 @@ extension LoopManager {
             parentCycleAction = newAction
 
             // The ability to advance a cycle is only available when the action is triggered via a keybind or a left click on the mouse.
-            // This will be set to false when the mouse is *moved* to prevent erratic behavior.
+            // This should be set to false when the mouse is moved to prevent rapid cycling.
             if canAdvanceCycle {
                 newAction = getNextCycleAction(newAction)
             } else {
@@ -341,7 +338,7 @@ extension LoopManager {
                 }
             }
 
-            print("Screen changed: \(newScreen.localizedName)")
+            logger.info("Screen changed: \(newScreen.localizedName)")
 
             return
         }
@@ -354,26 +351,24 @@ extension LoopManager {
             currentAction = newAction
 
             if Defaults[.hideUntilDirectionIsChosen] {
-                openWindows(startingAction: currentAction)
+                openWindows(startingAction: newAction)
             }
 
             DispatchQueue.main.async {
-                self.previewController.setAction(to: self.currentAction)
-                self.radialMenuController.setAction(to: self.currentAction)
+                self.previewController.setAction(to: newAction)
+                self.radialMenuController.setAction(to: newAction)
 
-                if let screenToResizeOn = self.screenToResizeOn,
-                   let window = self.targetWindow,
-                   !Defaults[.previewVisibility] {
+                if !Defaults[.previewVisibility], let screenToResizeOn = self.screenToResizeOn, let window = self.targetWindow {
                     WindowEngine.resize(
                         window,
-                        to: self.currentAction,
+                        to: newAction,
                         on: screenToResizeOn,
                         shouldRecord: false
                     )
                 }
             }
 
-            print("Window action changed: \(currentAction.direction)")
+            logger.info("Window action changed: \(newAction.debugDescription)")
         }
     }
 
@@ -440,47 +435,66 @@ extension LoopManager {
 
 // MARK: - Radial Menu
 
-private extension LoopManager {
-    func mouseMoved(_: NSEvent) -> NSEvent? {
-        guard isLoopActive else { return nil }
-        keybindMonitor.canPassthroughSpecialEvents = false
+extension LoopManager {
+    private func mouseMoved(cgEvent _: CGEvent) {
+        Task { @MainActor in
+            guard isLoopActive else { return }
+            keybindObserver.canPassthroughSpecialEvents = false
 
-        let noActionDistance: CGFloat = 10
+            let noActionDistance: CGFloat = 10
 
-        let currentMouseLocation = NSEvent.mouseLocation
-        let mouseAngle = Angle(radians: initialMousePosition.angle(to: currentMouseLocation))
-        let mouseDistance = initialMousePosition.distanceSquared(to: currentMouseLocation)
+            let currentMouseLocation = NSEvent.mouseLocation
+            let mouseAngle = Angle(radians: initialMousePosition.angle(to: currentMouseLocation))
+            let mouseDistance = initialMousePosition.distance(to: currentMouseLocation)
 
-        // Return if the mouse didn't move
-        if mouseAngle == angleToMouse, mouseDistance == distanceToMouse {
-            return nil
-        }
-
-        // Get angle & distance to mouse
-        angleToMouse = mouseAngle
-        distanceToMouse = mouseDistance
-
-        var resizeDirection: WindowAction = .init(.noAction)
-
-        // If mouse over 50 points away, select half or quarter positions
-        if distanceToMouse > pow(50 - Defaults[.radialMenuThickness], 2) {
-            switch Int((angleToMouse.normalized().degrees + 22.5) / 45) {
-            case 0, 8: resizeDirection = Defaults[.radialMenuRight]
-            case 1: resizeDirection = Defaults[.radialMenuBottomRight]
-            case 2: resizeDirection = Defaults[.radialMenuBottom]
-            case 3: resizeDirection = Defaults[.radialMenuBottomLeft]
-            case 4: resizeDirection = Defaults[.radialMenuLeft]
-            case 5: resizeDirection = Defaults[.radialMenuTopLeft]
-            case 6: resizeDirection = Defaults[.radialMenuTop]
-            case 7: resizeDirection = Defaults[.radialMenuTopRight]
-            default: break
+            // Return if the mouse didn't move
+            if mouseAngle == angleToMouse, mouseDistance == distanceToMouse {
+                return
             }
-        } else if distanceToMouse > pow(noActionDistance, 2) {
-            resizeDirection = Defaults[.radialMenuCenter]
+
+            // Get angle & distance to mouse
+            angleToMouse = mouseAngle
+            distanceToMouse = mouseDistance
+
+            var resizeDirection: WindowAction = .init(.noAction)
+
+            // If mouse over 50 points away, select half or quarter positions
+            if distanceToMouse > 50 - Defaults[.radialMenuThickness] {
+                switch Int((angleToMouse.normalized().degrees + 22.5) / 45) {
+                case 0, 8: resizeDirection = Defaults[.radialMenuRight]
+                case 1: resizeDirection = Defaults[.radialMenuBottomRight]
+                case 2: resizeDirection = Defaults[.radialMenuBottom]
+                case 3: resizeDirection = Defaults[.radialMenuBottomLeft]
+                case 4: resizeDirection = Defaults[.radialMenuLeft]
+                case 5: resizeDirection = Defaults[.radialMenuTopLeft]
+                case 6: resizeDirection = Defaults[.radialMenuTop]
+                case 7: resizeDirection = Defaults[.radialMenuTopRight]
+                default: break
+                }
+            } else if distanceToMouse > noActionDistance {
+                resizeDirection = Defaults[.radialMenuCenter]
+            }
+
+            changeAction(resizeDirection, canAdvanceCycle: false)
+        }
+    }
+
+    private func leftMouseDown(cgEvent event: CGEvent) {
+        /// Ensure that the source originates from the HID state ID.
+        /// Otherwise, this event was likely sent from Loop to focus the frontmost click (see `Window.focus` which sends a `SLSEvent` to the window)
+        let sourceID = CGEventSourceStateID(rawValue: Int32(event.getIntegerValueField(.eventSourceStateID)))
+        guard sourceID == .hidSystemState else {
+            return
         }
 
-        changeAction(resizeDirection, canAdvanceCycle: false)
+        Task { @MainActor [weak self] in
+            guard let self, isLoopActive, currentAction.direction != .noAction else {
+                return
+            }
 
-        return nil
+            if let parentCycleAction {
+                changeAction(parentCycleAction, disableHapticFeedback: true)
+            }
+        }
     }
 }

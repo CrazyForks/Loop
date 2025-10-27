@@ -162,6 +162,8 @@ extension AXUIElement {
     }
 }
 
+extension AXError: @retroactive _BridgedNSError {}
+extension AXError: @retroactive _ObjectiveCBridgeableError {}
 extension AXError: Swift.Error {}
 
 extension NSAccessibility.Attribute {

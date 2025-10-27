@@ -8,15 +8,18 @@
 import Combine
 import Defaults
 import Luminare
+import OSLog
 import SwiftUI
 
 final class AdvancedConfigurationModel: ObservableObject {
+    private let logger = Logger(category: "AdvancedConfigurationModel")
+
     @Published private(set) var didImportSuccessfullyAlert = false
     @Published private(set) var didExportSuccessfullyAlert = false
     @Published private(set) var didResetSuccessfullyAlert = false
 
     @Published private(set) var isLowPowerModeEnabled: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled
-    @Published private(set) var isAccessibilityAccessGranted = AccessibilityManager.getStatus()
+    @Published private(set) var isAccessibilityAccessGranted = AccessibilityManager.shared.isGranted
 
     private var lowPowerModeCheckerTask: Task<(), Never>?
     private var accessibilityCheckerTask: Task<(), Never>?
@@ -49,16 +52,14 @@ final class AdvancedConfigurationModel: ObservableObject {
 
     private func trackAccessibilityStatus() {
         accessibilityCheckerTask = Task(priority: .background) {
-            while !Task.isCancelled {
-                let isAccessibilityGranted = AccessibilityManager.getStatus()
-
-                if isAccessibilityAccessGranted != isAccessibilityGranted {
-                    await MainActor.run {
-                        isAccessibilityAccessGranted = isAccessibilityGranted
-                    }
+            for await status in AccessibilityManager.shared.stream(initial: true) {
+                guard !Task.isCancelled else {
+                    return
                 }
 
-                try? await Task.sleep(for: .seconds(1))
+                await MainActor.run {
+                    isAccessibilityAccessGranted = status
+                }
             }
         }
     }
@@ -69,7 +70,7 @@ final class AdvancedConfigurationModel: ObservableObject {
             do {
                 try await Migrator.importPrompt(onSuccess: importedSuccessfully)
             } catch {
-                print("Error importing keybinds: \(error)")
+                logger.error("Error importing keybinds: \(error)")
             }
         }
     }
@@ -80,7 +81,7 @@ final class AdvancedConfigurationModel: ObservableObject {
             do {
                 try await Migrator.exportPrompt(onSuccess: exportedSuccessfully)
             } catch {
-                print("Error exporting keybinds: \(error)")
+                logger.error("Error exporting keybinds: \(error)")
             }
         }
     }

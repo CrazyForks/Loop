@@ -147,3 +147,9 @@ enum WindowDirection: String, CaseIterable, Identifiable, Codable {
         }
     }
 }
+
+extension WindowDirection: CustomDebugStringConvertible {
+    var debugDescription: String {
+        rawValue
+    }
+}

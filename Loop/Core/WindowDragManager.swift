@@ -6,11 +6,18 @@
 //
 
 import Defaults
+import OSLog
 import SwiftUI
 
-class WindowDragManager {
+final class WindowDragManager {
     static let shared = WindowDragManager()
     private init() {}
+
+    private let logger = Logger(category: "WindowDragManager")
+
+    private var initialMousePosition: CGPoint?
+    private var didPassDragDistanceThreshold: Bool = false
+    private var dragDistanceThreshold: CGFloat = 5
 
     private var draggingWindow: Window?
     private var initialWindowFrame: CGRect?
@@ -18,25 +25,55 @@ class WindowDragManager {
 
     private let previewController = PreviewController()
 
-    private var leftMouseDraggedMonitor: EventMonitor?
-    private var leftMouseUpMonitor: EventMonitor?
+    private var leftMouseDraggedMonitor: PassiveEventMonitor?
+    private var leftMouseUpMonitor: PassiveEventMonitor?
+
+    private var determineDraggedWindowTask: Task<(), Never>?
 
     private var currentMousePosition: CGPoint {
         NSEvent.mouseLocation.flipY(screen: NSScreen.screens[0])
     }
 
     func addObservers() {
-        leftMouseDraggedMonitor = NSEventMonitor(scope: .all, eventMask: .leftMouseDragged) { event in
-            // Process window (only ONCE during a window drag)
-            if self.draggingWindow == nil {
-                self.setCurrentDraggingWindow()
+        leftMouseDraggedMonitor = PassiveEventMonitor(
+            events: [.leftMouseDragged],
+            callback: leftMouseDragged
+        )
+
+        leftMouseUpMonitor = PassiveEventMonitor(
+            events: [.leftMouseUp],
+            callback: leftMouseUp
+        )
+
+        leftMouseDraggedMonitor!.start()
+        leftMouseUpMonitor!.start()
+    }
+
+    private func leftMouseDragged(event _: CGEvent) {
+        Task { @MainActor in
+            guard let initialMousePosition else {
+                initialMousePosition = currentMousePosition
+                return
             }
 
-            if let window = self.draggingWindow,
-               let initialFrame = self.initialWindowFrame,
-               self.hasWindowMoved(window.frame, initialFrame) {
+            if !didPassDragDistanceThreshold {
+                didPassDragDistanceThreshold = currentMousePosition.distance(to: initialMousePosition) > dragDistanceThreshold
+
+                guard didPassDragDistanceThreshold else {
+                    return
+                }
+            }
+
+            // Process window (only ONCE during a window drag)
+            if draggingWindow == nil {
+                setCurrentDraggingWindow()
+            }
+
+            if let window = draggingWindow,
+               let initialFrame = initialWindowFrame,
+               hasWindowMoved(window.frame, initialFrame) {
                 if Defaults[.restoreWindowFrameOnDrag] {
-                    self.restoreInitialWindowSize(window)
+                    restoreInitialWindowSize(window)
                 } else {
                     StashManager.shared.onWindowDragged(window.cgWindowID)
                     WindowRecords.eraseRecords(for: window)
@@ -52,36 +89,37 @@ class WindowDragManager {
                         CGWarpMouseCursorPosition(newOrigin)
                     }
 
-                    self.getWindowSnapDirection()
+                    processSnapAction()
                 }
             }
-
-            return event
         }
+    }
 
-        leftMouseUpMonitor = NSEventMonitor(scope: .all, eventMask: .leftMouseUp) { event in
-            if let window = self.draggingWindow,
-               let initialFrame = self.initialWindowFrame,
-               self.hasWindowMoved(window.frame, initialFrame) {
+    private func leftMouseUp(_: CGEvent) {
+        Task { @MainActor in
+            if let window = draggingWindow,
+               let initialFrame = initialWindowFrame,
+               hasWindowMoved(window.frame, initialFrame) {
                 if Defaults[.windowSnapping] {
-                    self.attemptWindowSnap(window)
+                    attemptWindowSnap(window)
                 }
             }
 
             self.previewController.close()
             self.draggingWindow = nil
 
-            return event
+            previewController.close()
+            draggingWindow = nil
         }
-
-        leftMouseDraggedMonitor!.start()
-        leftMouseUpMonitor!.start()
     }
 
+    @MainActor
     private func setCurrentDraggingWindow() {
-        do {
+        if determineDraggedWindowTask != nil { return }
+
+        determineDraggedWindowTask = Task {
             guard
-                let draggingWindow = try WindowUtility.windowAtPosition(currentMousePosition),
+                let draggingWindow = try? WindowUtility.windowAtPosition(currentMousePosition),
                 !draggingWindow.isAppExcluded
             else {
                 return
@@ -89,8 +127,10 @@ class WindowDragManager {
 
             self.draggingWindow = draggingWindow
             initialWindowFrame = draggingWindow.frame
-        } catch {
-            // print("Failed to get window at position: \(error.localizedDescription)")
+
+            logger.info("Determined window being dragged: \(draggingWindow.debugDescription)")
+
+            determineDraggedWindowTask = nil
         }
     }
 
@@ -134,13 +174,12 @@ class WindowDragManager {
         WindowRecords.eraseRecords(for: window)
     }
 
-    private func getWindowSnapDirection() {
+    private func processSnapAction() {
         guard let screen = NSScreen.screenWithMouse else {
             return
         }
 
         let mainScreen = NSScreen.screens[0]
-        let mousePosition = NSEvent.mouseLocation.flipY(screen: mainScreen)
         let screenFrame = screen.frame.flipY(screen: mainScreen)
 
         previewController.setScreen(to: screen)
@@ -156,22 +195,23 @@ class WindowDragManager {
 
         let oldDirection = direction
 
-        if !ignoredFrame.contains(mousePosition) {
+        if !ignoredFrame.contains(currentMousePosition) {
             // Refresh accent colors in case user has enabled the wallpaper processor
             Task {
                 await AccentColorController.shared.refresh()
             }
 
-            direction = WindowDirection.processSnap(
-                mouseLocation: mousePosition,
+            direction = WindowDirection.getSnapDirection(
+                mouseLocation: currentMousePosition,
                 currentDirection: direction,
                 screenFrame: screenFrame,
                 ignoredFrame: ignoredFrame
             )
 
-            print("Window snapping direction changed: \(direction)")
+            // swiftformat:disable:next redundantSelf
+            logger.info("Window snapping direction changed: \(self.direction.debugDescription)")
 
-            previewController.open(screen: screen, window: nil, startingAction: nil)
+            previewController.open(screen: screen, window: draggingWindow, startingAction: nil)
             previewController.setAction(to: WindowAction(direction))
         } else {
             direction = .noAction

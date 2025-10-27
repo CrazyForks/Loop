@@ -6,6 +6,7 @@
 //
 
 import Defaults
+import OSLog
 import SwiftUI
 
 @_silgen_name("_AXUIElementGetWindow") @discardableResult
@@ -22,10 +23,10 @@ func SLPSPostEventRecordTo(_ psn: inout ProcessSerialNumber, _ bytes: inout UInt
 
 let kCPSUserGenerated: UInt32 = 0x200
 
-enum WindowError: Error {
+enum WindowError: LocalizedError {
     case invalidWindow
 
-    var localizedDescription: String {
+    var errorDescription: String {
         switch self {
         case .invalidWindow:
             "Invalid window"
@@ -33,12 +34,12 @@ enum WindowError: Error {
     }
 }
 
-class Window {
+final class Window {
     let axWindow: AXUIElement
     let cgWindowID: CGWindowID
     let nsRunningApplication: NSRunningApplication?
 
-    var observer: Observer?
+    private let logger = Logger(category: "Window")
 
     /// Initialize a window from an AXUIElement
     /// - Parameter element: The AXUIElement to initialize the window with. If it is not a window, an error will be thrown
@@ -85,6 +86,11 @@ class Window {
             throw WindowError.invalidWindow
         }
 
+        if let level = windowInfo[kCGWindowLayer as String] as? Int,
+           level < kCGNormalWindowLevel || level > kCGDraggingWindowLevel {
+            throw WindowError.invalidWindow
+        }
+
         let element = AXUIElementCreateApplication(pid)
         guard let windows: [AXUIElement] = try element.getValue(.windows),
               !windows.isEmpty
@@ -114,12 +120,6 @@ class Window {
         try self.init(element: windows[0])
     }
 
-    deinit {
-        if let observer = self.observer {
-            observer.stop()
-        }
-    }
-
     var role: NSAccessibility.Role? {
         do {
             guard let value: String = try self.axWindow.getValue(.role) else {
@@ -127,7 +127,7 @@ class Window {
             }
             return NSAccessibility.Role(rawValue: value)
         } catch {
-            print("Failed to get role: \(error.localizedDescription)")
+            logger.error("Failed to get role: \(error.localizedDescription)")
             return nil
         }
     }
@@ -139,7 +139,7 @@ class Window {
             }
             return NSAccessibility.Subrole(rawValue: value)
         } catch {
-            print("Failed to get subrole: \(error.localizedDescription)")
+            logger.error("Failed to get subrole: \(error.localizedDescription)")
             return nil
         }
     }
@@ -148,7 +148,7 @@ class Window {
         do {
             return try self.axWindow.getValue(.title)
         } catch {
-            print("Failed to get title: \(error.localizedDescription)")
+            logger.error("Failed to get title: \(error.localizedDescription)")
             return nil
         }
     }
@@ -163,7 +163,7 @@ class Window {
                 let result: Bool? = try appWindow.getValue(.enhancedUserInterface)
                 return result ?? false
             } catch {
-                print("Failed to get enhancedUserInterface: \(error.localizedDescription)")
+                logger.error("Failed to get enhancedUserInterface: \(error.localizedDescription)")
                 return false
             }
         }
@@ -175,7 +175,7 @@ class Window {
                 let appWindow = AXUIElementCreateApplication(pid)
                 try appWindow.setValue(.enhancedUserInterface, value: newValue)
             } catch {
-                print("Failed to set enhancedUserInterface: \(error.localizedDescription)")
+                logger.error("Failed to set enhancedUserInterface: \(error.localizedDescription)")
             }
         }
     }
@@ -197,6 +197,7 @@ class Window {
 
     ///
     /// Focuses the window. This will attempt to bring the window to the front and make it the active window.
+    /// Note that this first sets the process as frontmost, *then* sends a left click event to the window itself.
     ///
     /// - Returns:
     /// `true` if the window was successfully focused; `false` otherwise.
@@ -222,7 +223,13 @@ class Window {
             return false
         }
 
+        /// `0x01` is left click down, `0x02` is left click up (see `CGEventType`)
         for byte in [0x01, 0x02] {
+            /// Create raw `SLSEvent` data.
+            /// Future consideration: instead of manually creating the bytes here, investigate:
+            /// - Creating a `SLSEvent` (likely analogous to `CGEvent`)
+            /// - Apply an identifier to the event to help Loop differentiate events that originate from itself
+            /// - Converting the `SLSEvent` to data using `SLEventCreateData` in SkyLight
             var bytes = [UInt8](repeating: 0, count: 0xF8)
             bytes[0x04] = 0xF8
             bytes[0x08] = UInt8(byte)
@@ -254,7 +261,7 @@ class Window {
                 let result: NSNumber? = try self.axWindow.getValue(.fullScreen)
                 return result?.boolValue ?? false
             } catch {
-                print("Failed to get fullscreen: \(error.localizedDescription)")
+                logger.error("Failed to get fullscreen: \(error.localizedDescription)")
                 return false
             }
         }
@@ -262,7 +269,7 @@ class Window {
             do {
                 try self.axWindow.setValue(.fullScreen, value: newValue)
             } catch {
-                print("Failed to set fullscreen: \(error.localizedDescription)")
+                logger.error("Failed to set fullscreen: \(error.localizedDescription)")
             }
         }
     }
@@ -329,7 +336,7 @@ class Window {
                 let result: NSNumber? = try self.axWindow.getValue(.minimized)
                 return result?.boolValue ?? false
             } catch {
-                print("Failed to get minimized: \(error.localizedDescription)")
+                logger.error("Failed to get minimized: \(error.localizedDescription)")
                 return false
             }
         }
@@ -337,7 +344,7 @@ class Window {
             do {
                 try self.axWindow.setValue(.minimized, value: newValue)
             } catch {
-                print("Failed to set minimized: \(error.localizedDescription)")
+                logger.error("Failed to set minimized: \(error.localizedDescription)")
             }
         }
     }
@@ -354,7 +361,7 @@ class Window {
                 }
                 return result
             } catch {
-                print("Failed to get position: \(error.localizedDescription)")
+                logger.error("Failed to get position: \(error.localizedDescription)")
                 return .zero
             }
         }
@@ -362,7 +369,7 @@ class Window {
             do {
                 try self.axWindow.setValue(.position, value: newValue)
             } catch {
-                print("Failed to set position: \(error.localizedDescription)")
+                logger.error("Failed to set position: \(error.localizedDescription)")
             }
         }
     }
@@ -375,7 +382,7 @@ class Window {
                 }
                 return result
             } catch {
-                print("Failed to get size: \(error.localizedDescription)")
+                logger.error("Failed to get size: \(error.localizedDescription)")
                 return .zero
             }
         }
@@ -383,7 +390,7 @@ class Window {
             do {
                 try self.axWindow.setValue(.size, value: newValue)
             } catch {
-                print("Failed to set size: \(error.localizedDescription)")
+                logger.error("Failed to set size: \(error.localizedDescription)")
             }
         }
     }
@@ -393,7 +400,7 @@ class Window {
             let result: Bool = try self.axWindow.canSetValue(.size)
             return result
         } catch {
-            print("Failed to determine if window size can be set: \(error.localizedDescription)")
+            logger.error("Failed to determine if window size can be set: \(error.localizedDescription)")
             return true
         }
     }
@@ -420,7 +427,7 @@ class Window {
 
         if enhancedUI {
             let appName = nsRunningApplication?.localizedName
-            print("\(appName ?? "This app")'s enhanced UI will be temporarily disabled while resizing.")
+            logger.info("\(appName ?? "This app")'s enhanced UI will be temporarily disabled while resizing.")
             self.enhancedUserInterface = false
         }
 
@@ -446,31 +453,11 @@ class Window {
             self.enhancedUserInterface = true
         }
     }
-
-    func createObserver(_ callback: @escaping Observer.Callback) -> Observer? {
-        do {
-            return try Observer(processID: self.axWindow.getPID()!, callback: callback)
-        } catch AXError.invalidUIElement {
-            return nil
-        } catch {
-            fatalError("Caught unexpected error creating observer: \(error)")
-        }
-    }
-
-    func createObserver(_ callback: @escaping Observer.CallbackWithInfo) -> Observer? {
-        do {
-            return try Observer(processID: self.axWindow.getPID()!, callback: callback)
-        } catch AXError.invalidUIElement {
-            return nil
-        } catch {
-            fatalError("Caught unexpected error creating observer: \(error)")
-        }
-    }
 }
 
 extension Window: CustomDebugStringConvertible {
     var debugDescription: String {
         let name = nsRunningApplication?.localizedName ?? title ?? "<unknown>"
-        return "Window(id:\(cgWindowID), name:\(name))"
+        return "Window(id: \(cgWindowID), title: \(name))"
     }
 }

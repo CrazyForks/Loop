@@ -13,6 +13,8 @@ import SwiftUI
 ///
 /// Common actions, such as right half, or bottom right quarter, are represented by `WindowDirection` enum, while user-made actions, such as custom frames and cycles are speciied by this struct.
 struct WindowAction: Codable, Identifiable, Hashable, Equatable, Defaults.Serializable {
+    private static let logger = Logger(category: "WindowAction")
+
     var id: UUID = .init()
 
     /// Initializes a `WindowAction` with the specified parameters. Only to be used when decoding from JSON.
@@ -574,10 +576,10 @@ extension WindowAction {
     /// - Returns: the frame of the last action performed on the window, or the current frame if no last action is found.
     private func getLastActionFrame(_ window: Window, _ bounds: CGRect) -> CGRect {
         if let previousAction = WindowRecords.getLastAction(for: window) {
-            print("Last action was \(previousAction.direction) (name: \(previousAction.name ?? "nil"))")
+            Self.logger.info("Last action was \(previousAction.direction.debugDescription) (name: \(previousAction.name ?? "nil"))")
             return previousAction.getFrame(window: window, bounds: bounds)
         } else {
-            print("Didn't find frame to undo; using current frame")
+            Self.logger.info("Didn't find frame to undo; using current frame")
             return window.frame
         }
     }
@@ -589,7 +591,7 @@ extension WindowAction {
         if let initialFrame = WindowRecords.getInitialFrame(for: window) {
             return initialFrame
         } else {
-            print("Didn't find initial frame; using current frame")
+            Self.logger.info("Didn't find initial frame; using current frame")
             return window.frame
         }
     }
@@ -741,27 +743,8 @@ extension WindowAction {
     }
 }
 
-extension WindowAction {
-    /// Returns the respective action for the given keybind.
-    /// - Parameter keybind: the keybind to search for.
-    /// - Returns: the `WindowAction` that matches the keybind, or `nil` if no action is found.
-    static func getAction(for keybind: Set<CGKeyCode>) -> WindowAction? {
-        guard !keybind.isEmpty else { return nil }
-
-        // First do a simple lookup for exact matches
-        for item in Defaults[.keybinds] where item.keybind == keybind {
-            return item
-        }
-
-        if keybind.contains(.kVK_Shift), Defaults[.cycleBackwardsOnShiftPressed] {
-            // Reverse cycling is an option, so check for that
-            let modifiedKeybind = keybind.subtracting([.kVK_Shift])
-
-            for item in Defaults[.keybinds] where item.eligibleForReverseCycle && item.keybind == modifiedKeybind {
-                return item
-            }
-        }
-
-        return nil
+extension WindowAction: CustomDebugStringConvertible {
+    var debugDescription: String {
+        "WindowAction(direction: \(direction), name: \(getName()))"
     }
 }

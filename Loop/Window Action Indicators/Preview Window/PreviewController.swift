@@ -13,7 +13,7 @@ final class PreviewController {
     private var controller: NSWindowController?
     private var screen: NSScreen?
     private var window: Window?
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.loop", category: "PreviewController")
+    private let logger = Logger(category: "PreviewController")
 
     func open(
         screen: NSScreen,
@@ -74,7 +74,7 @@ final class PreviewController {
         close()
         open(screen: newScreen, window: window, startingAction: nil)
 
-        print("Changed preview window's screen")
+        logger.info("Changed preview window's screen")
     }
 
     func setAction(to newAction: WindowAction) {
@@ -88,16 +88,16 @@ final class PreviewController {
         }
 
         /// Check screen bounds
-        print("Screen frame: \(screen.frame)")
-        print("Screen safeScreenFrame: \(screen.safeScreenFrame)")
+        logger.info("Screen frame: \(screen.frame.debugDescription)")
+        logger.info("Screen safeScreenFrame: \(screen.safeScreenFrame.debugDescription)")
 
         // Validate screen bounds before proceeding
         guard screen.safeScreenFrame.isFinite else {
-            print("ERROR: Invalid screen bounds detected!")
+            logger.error("Invalid screen bounds detected")
             return
         }
 
-        let targetWindowFrame = newAction.getFrame(
+        var targetWindowFrame = newAction.getFrame(
             window: window,
             bounds: screen.safeScreenFrame,
             screen: screen,
@@ -106,11 +106,11 @@ final class PreviewController {
         .flipY(maxY: NSScreen.screens[0].frame.maxY)
 
         // What is the screen's frame
-        print("Target frame: \(targetWindowFrame)")
+        logger.info("Target frame: \(targetWindowFrame.debugDescription)")
 
         // Validate target frame before setting
         guard targetWindowFrame.isFinite else {
-            print("ERROR: Invalid target frame calculated!")
+            logger.info("Invalid target frame calculated")
             return
         }
 
@@ -129,10 +129,32 @@ final class PreviewController {
                 let centerFrame: NSRect = .init(origin: mousePosition, size: .zero)
                 windowController.window?.setFrame(centerFrame, display: true)
             case .actionCenter:
-                // Center the preview window on the action's target frame
-                let centerFrame: NSRect = .init(origin: targetWindowFrame.center, size: .zero)
+                // Center the preview window on the action's target frame (at 80% size)
+                let previewWidth = targetWindowFrame.width * 0.8
+                let previewHeight = targetWindowFrame.height * 0.8
+
+                let centerFrame: NSRect = .init(
+                    x: targetWindowFrame.center.x - (previewWidth / 2),
+                    y: targetWindowFrame.center.y - (previewHeight / 2),
+                    width: previewWidth,
+                    height: previewHeight
+                )
+
                 windowController.window?.setFrame(centerFrame, display: true)
             }
+        }
+
+        if !isCurrentlyTransparent, shouldBecomeTransparent, let currentFrame = windowController.window?.frame {
+            // Center the preview window on the last target frame (at 80% size)
+            let scaledWidth = currentFrame.width * 0.8
+            let scaledHeight = currentFrame.height * 0.8
+
+            targetWindowFrame = .init(
+                x: currentFrame.center.x - (scaledWidth / 2),
+                y: currentFrame.center.y - (scaledHeight / 2),
+                width: scaledWidth,
+                height: scaledHeight
+            )
         }
 
         if let animation = Defaults[.animationConfiguration].previewTimingFunction {
@@ -146,6 +168,6 @@ final class PreviewController {
             windowController.window?.alphaValue = shouldBecomeTransparent ? 0 : 1
         }
 
-        logger.log("PreviewController: Set action to '\(newAction.getName())'")
+        logger.log("PreviewController: Set action to '\(newAction.debugDescription)'")
     }
 }
