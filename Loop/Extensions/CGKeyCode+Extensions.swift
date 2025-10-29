@@ -277,7 +277,7 @@ extension CGKeyCode {
     ]
 
     // Make sure to use baseModifier before using this!
-    private static let modifierToImage: [CGKeyCode: String] = [
+    private static let modifierToSystemImage: [CGKeyCode: String] = [
         .kVK_Function: "globe",
         .kVK_Shift: "shift",
         .kVK_Command: "command",
@@ -286,7 +286,7 @@ extension CGKeyCode {
     ]
 
     var modifierSystemImage: String? {
-        if let systemName = CGKeyCode.modifierToImage[baseModifier] {
+        if let systemName = CGKeyCode.modifierToSystemImage[baseModifier] {
             systemName
         } else {
             nil
@@ -365,5 +365,12 @@ extension CGKeyCode {
             let modifiers = CGEventFlags(rawValue: carbonModifiers).keyCodes
             return modifiers.union([carbonKeyCode])
         }
+    }
+}
+
+extension Set<CGKeyCode> {
+    /// Maps all modifier keys to their base variant. Used on trigger key when the user has disabled side-dependent trigger keys.
+    var baseModifiers: Set<CGKeyCode> {
+        Set(map(\.baseModifier))
     }
 }
