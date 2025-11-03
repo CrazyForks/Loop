@@ -112,7 +112,7 @@ jobs:
             gh pr create \
               --title "🌐 Update translations from Crowdin" \
               --body "This PR updates translations in Loop from provided translations on [Crowdin](https://crowdin.com/project/loop-i18n) :)" \
-              --base develop
+              --base develop \
               --label "Localization"
           else
             echo "PR #$existing_pr already exists. Skipping PR creation."
