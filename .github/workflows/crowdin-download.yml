@@ -2,11 +2,6 @@ name: Crowdin Download
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-    paths:
-      - "Loop/Localizable.xcstrings"
 
 jobs:
   crowdin-download:
