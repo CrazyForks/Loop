@@ -3086,8 +3086,8 @@
         },
         "it" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Corner Radius"
+            "state" : "translated",
+            "value" : "Raggio degli angoli"
           }
         },
         "ja" : {
@@ -3122,14 +3122,14 @@
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Corner Radius"
+            "state" : "translated",
+            "value" : "圆角半径"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Corner Radius"
+            "state" : "translated",
+            "value" : "圓角半徑"
           }
         }
       }
@@ -4158,8 +4158,8 @@
         },
         "it" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Default corner radius"
+            "state" : "translated",
+            "value" : "Raggio predefinito degli angoli"
           }
         },
         "ja" : {
@@ -4194,14 +4194,14 @@
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Default corner radius"
+            "state" : "translated",
+            "value" : "默认圆角半径"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Default corner radius"
+            "state" : "translated",
+            "value" : "默認圓角半徑"
           }
         }
       }
@@ -20460,8 +20460,8 @@
         },
         "it" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Prioritize selected window’s corner radius"
+            "state" : "translated",
+            "value" : "Dai priorità al raggio degli angoli della finestra"
           }
         },
         "ja" : {
@@ -20496,14 +20496,14 @@
         },
         "zh-Hans" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Prioritize selected window’s corner radius"
+            "state" : "translated",
+            "value" : "优先使用已选窗口的圆角半径"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
-            "state" : "needs_review",
-            "value" : "Prioritize selected window’s corner radius"
+            "state" : "translated",
+            "value" : "優先使用已選視窗的圓角半徑"
           }
         }
       }
