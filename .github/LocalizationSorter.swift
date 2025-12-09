@@ -25,31 +25,6 @@ func removeNullComments(from json: Any) -> Any {
     return json
 }
 
-/// Crowdin's Localizable.xcstrings is set to export empty strings when exporting a key without a localization.
-/// This function removes them so that Loop uses the default English key instead of displaying an empty string.
-func removeEmptyStrings(from json: Any) -> Any {
-    if let dict = json as? [String: Any] {
-        var newDict = [String: Any]()
-        for (key, value) in dict {
-            // Check if this is a stringUnit dictionary with an empty "value"
-            if key == "stringUnit",
-               let stringUnitDict = value as? [String: Any],
-               let stringValue = stringUnitDict["value"] as? String,
-               stringValue.isEmpty {
-                // Skip adding this key to newDict, effectively removing it
-                continue
-            }
-            
-            // Recurse for other keys
-            newDict[key] = removeEmptyStrings(from: value)
-        }
-        return newDict
-    } else if let array = json as? [Any] {
-        return array.map { removeEmptyStrings(from: $0) }
-    }
-    return json
-}
-
 /// Crowdin's Localizable.xcstrings file's localizations are not sorted alphabetically.
 /// To sort them, we can simply read it into a JSON object here in Swift, then re-output it as JSON, with the `.sortedKeys` option enabled in the encoder.
 func sortLocalizations(inputPath: String, outputPath: String) throws {
@@ -58,8 +33,7 @@ func sortLocalizations(inputPath: String, outputPath: String) throws {
     let json = try JSONSerialization.jsonObject(with: data)
     
     // Remove null comments and sort
-    let noNullCommentsJson = removeNullComments(from: json)
-    let cleanedJson = removeEmptyStrings(from: noNullCommentsJson)
+    let cleanedJson = removeNullComments(from: json)
     
     // Write back with sorted keys
     let sortedData = try JSONSerialization.data(
