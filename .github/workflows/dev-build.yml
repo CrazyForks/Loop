@@ -153,7 +153,7 @@ jobs:
           toTag: "prerelease"
           configurationJson: |
             {
-              "template": "#{{CHANGELOG}}\n## 💭 Uncategorized\n#{{UNCATEGORIZED}}\n---\nMinimum macOS version: 13.0",
+              "template": "## 📰 Development News\n- 💸 Support Loop by [sponsoring the project](https://github.com/sponsors/MrKai77)!\n- 🌐 Let us know if you are interested in localizing Loop to your language :)\n- 💬 Join our [Discord server](https://discord.gg/2CZ2N6PKjq)!\n#{{CHANGELOG}}\n## 💭 Uncategorized\n#{{UNCATEGORIZED}}\n---\nMinimum macOS version: 13.0",
               "pr_template": "- #{{TITLE}} ##{{NUMBER}}",
               "categories": [
                 {
