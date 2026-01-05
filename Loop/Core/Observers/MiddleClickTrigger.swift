@@ -13,6 +13,7 @@ final class MiddleClickTrigger {
     // Callbacks
     private let openCallback: (WindowAction) -> ()
     private let closeCallback: (Bool) -> ()
+    private let checkIfLoopOpen: () -> Bool
 
     // State-tracking
     private var monitor: PassiveEventMonitor?
@@ -39,11 +40,13 @@ final class MiddleClickTrigger {
     ///   - closeCallback: what to do when the middle mouse button is released, and Loop should be closed.
     init(
         openCallback: @escaping (WindowAction) -> (),
-        closeCallback: @escaping (Bool) -> ()
+        closeCallback: @escaping (Bool) -> (),
+        checkIfLoopOpen: @escaping () -> Bool
     ) {
         // We will never start off with an action from this trigger, so pass in nil
         self.openCallback = openCallback
         self.closeCallback = closeCallback
+        self.checkIfLoopOpen = checkIfLoopOpen
     }
 
     @MainActor
@@ -83,7 +86,10 @@ final class MiddleClickTrigger {
                     openCallback(.init(.noSelection))
                 }
             } else {
-                doubleClickTimer.handleKeyUp()
+                if !checkIfLoopOpen() {
+                    doubleClickTimer.handleKeyUp()
+                }
+
                 triggerDelayTimer.cancel()
                 closeCallback(false)
             }

@@ -32,7 +32,8 @@ final class LoopManager: ObservableObject {
 
     private(set) lazy var middleClickTrigger = MiddleClickTrigger(
         openCallback: { [weak self] in self?.openLoop(startingAction: $0) },
-        closeCallback: { [weak self] in self?.closeLoop(forceClose: $0) }
+        closeCallback: { [weak self] in self?.closeLoop(forceClose: $0) },
+        checkIfLoopOpen: { [weak self] in self?.isLoopActive ?? false }
     )
 
     private(set) lazy var mouseInteractionObserver = MouseInteractionObserver(
