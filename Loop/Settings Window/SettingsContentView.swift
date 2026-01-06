@@ -17,6 +17,10 @@ struct SettingsContentView: View {
     @Environment(\.luminareTitleBarHeight) private var titleBarHeight
     @Default(.enableRadialMenuCustomization) var enableRadialMenuCustomization
 
+    private var showRadialMenuGuide: Bool {
+        enableRadialMenuCustomization && model.showRadialMenu && model.currentTab == .radialMenu
+    }
+
     var body: some View {
         LuminareDividedStack {
             LuminareSidebar {
@@ -53,16 +57,18 @@ struct SettingsContentView: View {
 
             if model.showInspector {
                 ZStack {
-                    LuminarePreviewView()
-                        .allowsHitTesting(false)
+                    if model.showPreview || showRadialMenuGuide {
+                        LuminarePreviewView()
+                            .allowsHitTesting(false)
+                    }
 
                     if model.showRadialMenu {
                         RadialMenuView(viewModel: model.radialMenuViewModel)
                             .allowsHitTesting(false)
+                    }
 
-                        if enableRadialMenuCustomization, model.currentTab == .radialMenu {
-                            RadialMenuActionsGuide()
-                        }
+                    if showRadialMenuGuide {
+                        RadialMenuActionsGuide()
                     }
                 }
                 .compositingGroup()
