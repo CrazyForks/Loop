@@ -13,18 +13,23 @@ import SwiftUI
 final class Updater: ObservableObject {
     static let shared = Updater()
 
+    @Published private(set) var updateState: UpdateAvailability = .unavailable {
+        didSet { updateStateChanged() }
+    }
+
     @Published private(set) var targetRelease: Release?
     @Published private(set) var progressBar: Double = 0
-    @Published private(set) var updateState: UpdateAvailability = .notChecked
     @Published private(set) var updatesEnabled: Bool = Updater.checkIfUpdatesEnabled()
     @Published private(set) var changelog: [(title: String, body: [ChangelogNote])] = .init()
     @Published var expandedChangelogSections: Set<String> = [] // By title
 
+    private(set) var shouldAutoPresentUpdateWindow: Bool = false
     private var windowController: NSWindowController?
     private var includeDevelopmentVersions: Bool { Defaults[.includeDevelopmentVersions] }
 
     private var updateFetcherTask: Task<(), Never>?
     private var updateCheckerTask: Task<(), Never>?
+    private var autoPresentUpdateWindowTask: Task<(), Never>?
     private var includeDevelopmentVersionsObserver: Task<(), Never>?
     private var updatesEnabledObserver: Task<(), Never>?
 
@@ -37,10 +42,20 @@ final class Updater: ObservableObject {
     }
 
     enum UpdateAvailability {
-        case notChecked
         case available
         case unavailable
-        case disabled
+        case osNotSupported
+
+        var text: String {
+            switch self {
+            case .unavailable:
+                String(localized: "Check for updates…")
+            case .available:
+                String(localized: "Update…")
+            case .osNotSupported:
+                String(localized: "This macOS version is no longer supported.")
+            }
+        }
     }
 
     private init() {
@@ -48,8 +63,6 @@ final class Updater: ObservableObject {
         if updatesEnabled {
             self.updateCheckerTask = makeUpdateCheckerTask()
             self.includeDevelopmentVersionsObserver = makeIncludeDevelopmentVersionsObserver()
-        } else {
-            self.updateState = .disabled
         }
 
         self.updatesEnabledObserver = makeUpdatesEnabledObserver()
@@ -63,6 +76,30 @@ final class Updater: ObservableObject {
         return Defaults[.updatesEnabled]
     }
 
+    private func updateStateChanged() {
+        autoPresentUpdateWindowTask?.cancel()
+        autoPresentUpdateWindowTask = nil
+
+        if updateState == .available {
+            shouldAutoPresentUpdateWindow = true
+
+            /// If the updater has requested that the update window be presented for over 6 hours, automatically present it.
+            autoPresentUpdateWindowTask = Task {
+                Log.info("Will automatically present update window in 6 hours if there is no activity", category: .updater)
+
+                try? await Task.sleep(for: .seconds(21600))
+
+                if !Task.isCancelled, shouldAutoPresentUpdateWindow {
+                    await showUpdateWindowIfEligible()
+                }
+
+                autoPresentUpdateWindowTask = nil
+            }
+        } else {
+            shouldAutoPresentUpdateWindow = false
+        }
+    }
+
     private func makeUpdateCheckerTask() -> Task<(), Never>? {
         Task {
             while !Task.isCancelled {
@@ -70,10 +107,6 @@ final class Updater: ObservableObject {
                 try? await Task.sleep(for: .seconds(21600))
 
                 await self.fetchLatestInfo()
-
-                if self.updateState == .available {
-                    await self.showUpdateWindow()
-                }
             }
         }
     }
@@ -96,6 +129,8 @@ final class Updater: ObservableObject {
                     updatesEnabled = Updater.checkIfUpdatesEnabled()
                 }
 
+                Log.info("Updates enabled status changed to: \(updatesEnabled)", category: .updater)
+
                 if updatesEnabled {
                     self.updateCheckerTask = makeUpdateCheckerTask()
                     self.includeDevelopmentVersionsObserver = makeIncludeDevelopmentVersionsObserver()
@@ -107,7 +142,7 @@ final class Updater: ObservableObject {
 
                     await MainActor.run {
                         targetRelease = nil
-                        updateState = .disabled
+                        updateState = .unavailable
                         progressBar = 0
                     }
                 }
@@ -118,6 +153,7 @@ final class Updater: ObservableObject {
     @MainActor
     func dismissWindow() {
         windowController?.close()
+        windowController = nil
     }
 
     // Pulls the latest release information from GitHub and updates the app state accordingly.
@@ -129,22 +165,20 @@ final class Updater: ObservableObject {
         updateFetcherTask = Task {
             defer { updateFetcherTask = nil }
 
+            await MainActor.run {
+                targetRelease = nil
+                progressBar = 0
+            }
+
             // Early return if updates are disabled and not forcing
             guard updatesEnabled || force else {
                 await MainActor.run {
-                    targetRelease = nil
-                    updateState = .disabled
+                    updateState = .unavailable
                 }
                 return
             }
 
             Log.info("Fetching latest release info...", category: .updater)
-
-            await MainActor.run {
-                targetRelease = nil
-                updateState = .notChecked
-                progressBar = 0
-            }
 
             let urlString = includeDevelopmentVersions ?
                 "https://api.github.com/repos/MrKai77/Loop/releases" : // Developmental branch
@@ -161,6 +195,9 @@ final class Updater: ObservableObject {
                 // Process data immediately after fetching, reducing the number of async suspension points.
                 try await processFetchedData(data)
             } catch {
+                await MainActor.run {
+                    updateState = .unavailable
+                }
                 Log.error("Error fetching release info: \(error.localizedDescription)", category: .updater)
             }
         }
@@ -177,16 +214,16 @@ final class Updater: ObservableObject {
             let releases = try decoder.decode([Release].self, from: data)
 
             if let latestPreRelease = releases.compactMap({ $0.prerelease ? $0 : nil }).first {
-                try await processRelease(latestPreRelease)
+                await processRelease(latestPreRelease)
             }
         } else {
             // This would need to parse a single release
             let release = try decoder.decode(Release.self, from: data)
-            try await processRelease(release)
+            await processRelease(release)
         }
     }
 
-    private func processRelease(_ release: Release) async throws {
+    private func processRelease(_ release: Release) async {
         let currentVersion = Bundle.main.appVersion?.filter(\.isASCII).trimmingCharacters(in: .whitespaces) ?? "0.0.0"
 
         await MainActor.run {
@@ -198,18 +235,18 @@ final class Updater: ObservableObject {
                 release.buildNumber = versionDetails.buildNumber
             }
 
-            var isUpdateAvailable = release.tagName.compare(currentVersion, options: .numeric) == .orderedDescending
+            var newUpdateState: UpdateAvailability = release.tagName.compare(currentVersion, options: .numeric) == .orderedDescending ? .available : .unavailable
 
             // If the development version is chosen, compare the build number
-            if !isUpdateAvailable,
+            if newUpdateState != .available,
                includeDevelopmentVersions,
                let versionBuild = release.buildNumber,
                let currentBuild = Bundle.main.appBuild {
-                isUpdateAvailable = versionBuild > currentBuild
+                newUpdateState = versionBuild > currentBuild ? .available : .unavailable
             }
 
             // If the update's tag and build number passes the checks above, check the minimum macOS version
-            if isUpdateAvailable {
+            if newUpdateState == .available {
                 let lines = release.body
                     .split(whereSeparator: \.isNewline)
                     .reversed()
@@ -218,7 +255,7 @@ final class Updater: ObservableObject {
                     if let minimumMacOSVersion = extractMinimumMacOSVersion(from: String(line)) {
                         if !ProcessInfo.processInfo.isOperatingSystemAtLeast(minimumMacOSVersion) {
                             Log.warn("Minimum macOS version requirement for next update not met (required: \(minimumMacOSVersion))", category: .updater)
-                            isUpdateAvailable = false
+                            newUpdateState = .osNotSupported
                         } else {
                             Log.success("Minimum macOS version requirement for next update is met", category: .updater)
                         }
@@ -226,9 +263,9 @@ final class Updater: ObservableObject {
                 }
             }
 
-            updateState = isUpdateAvailable ? .available : .unavailable
+            updateState = newUpdateState
 
-            if isUpdateAvailable {
+            if newUpdateState == .available {
                 Log.notice("Update available: \(release.name)", category: .updater)
 
                 targetRelease = release
@@ -325,7 +362,8 @@ final class Updater: ObservableObject {
         }
     }
 
-    func showUpdateWindow() async {
+    func showUpdateWindowIfEligible() async {
+        shouldAutoPresentUpdateWindow = false
         guard updateState == .available else { return }
 
         await MainActor.run {
@@ -335,6 +373,8 @@ final class Updater: ObservableObject {
             windowController?.window?.makeKeyAndOrderFront(self)
             windowController?.window?.orderFrontRegardless()
         }
+
+        Log.ui("Update window shown", category: .updater)
     }
 
     // Downloads the update from GitHub and installs it
