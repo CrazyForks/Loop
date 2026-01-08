@@ -413,6 +413,17 @@
         }
       }
     },
+    "A single %@ action can only track one window. To stash\nmultiple windows, add additional %@ actions." : {
+      "comment" : "Information in a popover displaying how a stash action can only keep track of a single window.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "A single %1$@ action can only track one window. To stash\nmultiple windows, add additional %2$@ actions."
+          }
+        }
+      }
+    },
     "Accessibility access" : {
       "localizations" : {
         "ar" : {
@@ -31170,5 +31181,5 @@
       }
     }
   },
-  "version" : "1.0"
+  "version" : "1.1"
 }
