@@ -47,29 +47,24 @@ struct RadialMenuView: View {
 
     @available(macOS 26.0, *)
     private func postTahoeView() -> some View {
-        ZStack {
-            GlassEffectContainer {
-                if viewModel.isShown {
-                    Color.clear
-                        .glassEffect(
-                            .regular.tint(accentColorController.color1.opacity(0.025)),
-                            in: .rect(cornerRadius: radialMenuCornerRadius)
-                                .inset(by: radialMenuThickness / 2)
-                                .stroke(lineWidth: radialMenuThickness)
-                        )
-                        .glassEffectTransition(.materialize)
-                }
-            }
-
+        GlassEffectContainer {
             if viewModel.isShown {
-                ZStack {
-                    radialMenuFill()
-                        .mask(directionSelectorMask)
-                        .mask(radialMenuMask)
-
-                    overlayImage()
-                }
-                .transition(.scale(scale: 1.25).combined(with: .opacity))
+                radialMenuFill()
+                    .mask(directionSelectorMask)
+                    .mask(radialMenuMask)
+                    .glassEffect(
+                        .regular.tint(accentColorController.color1.opacity(0.025)),
+                        in: .rect(cornerRadius: radialMenuCornerRadius)
+                            .inset(by: radialMenuThickness / 2)
+                            .stroke(lineWidth: radialMenuThickness)
+                    )
+                    .glassEffectTransition(.materialize)
+            }
+        }
+        .overlay {
+            if viewModel.isShown {
+                overlayImage()
+                    .transition(.scale(scale: 1.25).combined(with: .opacity))
             }
         }
         .frame(width: radialMenuSize, height: radialMenuSize)
