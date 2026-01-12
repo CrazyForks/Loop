@@ -21,13 +21,17 @@ enum SkyLightToolBelt {
             return false
         }
 
-        var wid = windowID
         var psn = ProcessSerialNumber()
         let status = GetProcessForPID(pid, &psn)
 
-        var cgStatus = SLPSSetFrontProcessWithOptions(
+        guard status == noErr else {
+            Log.error("Failed to get PSN: \(status)", category: .skyLightToolBelt)
+            return false
+        }
+
+        let cgStatus = SLPSSetFrontProcessWithOptions(
             &psn,
-            wid,
+            windowID,
             kCPSUserGenerated
         )
 
