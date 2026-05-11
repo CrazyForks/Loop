@@ -86,24 +86,22 @@ struct RadialMenuActionItemView: View {
     private var label: some View {
         actionIndicator
             .background(alignment: .leading) {
-                if isHovering || isPickerPresented {
-                    Color.clear
-                        .frame(width: 300 - 24)
-                        .luminarePopover(
-                            isPresented: $isPickerPresented,
-                            arrowEdge: .top,
-                            shouldHideAnchor: true,
-                            shouldAnimate: false
-                        ) {
-                            RadialMenuActionPickerView(selection: $action.type)
-                                .frame(width: 300, height: 300)
+                Color.clear
+                    .frame(width: 300 - 24)
+                    .luminarePopover(
+                        isPresented: $isPickerPresented,
+                        arrowEdge: .top,
+                        shouldHideAnchor: true,
+                        shouldAnimate: false
+                    ) {
+                        RadialMenuActionPickerView(selection: $action.type)
+                            .frame(width: 300, height: 300)
+                    }
+                    .onChange(of: isPickerPresented) { _ in
+                        if !isPickerPresented {
+                            PickerListEventMonitorManager.shared.removeAllMonitors()
                         }
-                        .onChange(of: isPickerPresented) { _ in
-                            if !isPickerPresented {
-                                PickerListEventMonitorManager.shared.removeAllMonitors()
-                            }
-                        }
-                }
+                    }
             }
     }
 

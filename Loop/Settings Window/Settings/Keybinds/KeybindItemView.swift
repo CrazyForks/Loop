@@ -122,27 +122,25 @@ struct KeybindItemView: View {
             .foregroundStyle(isHovering ? .primary : .secondary)
         }
         .background(alignment: .leading) {
-            if isDirectionPickerPresented || isHovering {
-                Color.clear
-                    .frame(width: 300 - 24)
-                    .luminarePopover(
-                        isPresented: $isDirectionPickerPresented,
-                        arrowEdge: .top,
-                        shouldHideAnchor: true,
-                        shouldAnimate: false
-                    ) {
-                        DirectionPickerView(
-                            direction: $action.direction,
-                            isInCycle: cycleIndex != nil
-                        )
-                        .frame(width: 300, height: 300)
+            Color.clear
+                .frame(width: 300 - 24)
+                .luminarePopover(
+                    isPresented: $isDirectionPickerPresented,
+                    arrowEdge: .top,
+                    shouldHideAnchor: true,
+                    shouldAnimate: false
+                ) {
+                    DirectionPickerView(
+                        direction: $action.direction,
+                        isInCycle: cycleIndex != nil
+                    )
+                    .frame(width: 300, height: 300)
+                }
+                .onChange(of: isDirectionPickerPresented) { _ in
+                    if !isDirectionPickerPresented {
+                        PickerListEventMonitorManager.shared.removeAllMonitors()
                     }
-                    .onChange(of: isDirectionPickerPresented) { _ in
-                        if !isDirectionPickerPresented {
-                            PickerListEventMonitorManager.shared.removeAllMonitors()
-                        }
-                    }
-            }
+                }
         }
     }
 

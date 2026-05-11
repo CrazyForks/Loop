@@ -10,6 +10,7 @@ import SwiftUI
 struct DirectionPickerView: View {
     @State private var searchText = ""
     @State private var searchResults: [WindowDirection] = []
+    @FocusState private var isSearchFocused: Bool
 
     @Binding private var direction: WindowDirection
     private let isInCycle: Bool
@@ -40,10 +41,12 @@ struct DirectionPickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            CustomTextField(
-                $searchText,
-                placeholder: .init(localized: "Search for a window action", defaultValue: "Search…")
+            TextField(
+                String(localized: "Search for a window action", defaultValue: "Search…"),
+                text: $searchText
             )
+            .textFieldStyle(.plain)
+            .focused($isSearchFocused)
             .padding(12)
 
             Divider()
@@ -71,6 +74,9 @@ struct DirectionPickerView: View {
         .onAppear {
             searchText = ""
             computeSearchResults()
+            Task { @MainActor in
+                isSearchFocused = true
+            }
         }
         .onDisappear {
             searchText = ""
