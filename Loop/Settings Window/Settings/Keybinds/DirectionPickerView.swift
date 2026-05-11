@@ -57,7 +57,7 @@ struct DirectionPickerView: View {
                         sections: sections + [moreSection]
                     ) { item in
                         HStack(spacing: 8) {
-                            IconView(action: .init(item))
+                            IconView(direction: item)
 
                             Text(item.name)
                         }
