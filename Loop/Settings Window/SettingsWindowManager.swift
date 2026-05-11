@@ -95,6 +95,10 @@ final class SettingsWindowManager: ObservableObject {
         }
 
         NSApp.setActivationPolicy(.regular)
+        
+        if showInspector {
+            startTimer()
+        }
 
         controller?.showWindow(self)
         window?.orderFrontRegardless()
@@ -127,13 +131,15 @@ final class SettingsWindowManager: ObservableObject {
         guard showInspector else { return }
 
         stopTimer()
-        startTimer()
+        startTimer(immediatelySelectNext: true)
     }
 
-    private func startTimer() {
+    private func startTimer(immediatelySelectNext: Bool = false) {
         previewActionTimerTask?.cancel()
         previewActionTimerTask = Task(priority: .utility) {
-            try await Task.sleep(for: .seconds(1))
+            if !immediatelySelectNext {
+                try await Task.sleep(for: .seconds(1))
+            }
 
             while !Task.isCancelled {
                 if NSApp.isActive {
