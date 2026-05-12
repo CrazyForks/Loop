@@ -15,19 +15,18 @@ struct ExcludedAppsConfigurationView: View {
 
     var body: some View {
         LuminareSection {
-            HStack(spacing: 4) {
+            LuminareButtonRow {
                 Button("Add") {
                     showAppChooser()
                 }
-                .luminareRoundingBehavior(topLeading: true)
 
                 Button("Remove", role: .destructive) {
                     excludedApps.removeAll { selectedApps.contains($0) }
                 }
-                .luminareRoundingBehavior(topTrailing: true)
                 .disabled(selectedApps.isEmpty)
                 .keyboardShortcut(.delete)
             }
+            .luminareRoundingBehavior(top: true)
 
             LuminareList(
                 items: $excludedApps,

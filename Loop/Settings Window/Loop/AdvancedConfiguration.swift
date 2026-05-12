@@ -246,7 +246,7 @@ struct AdvancedConfigurationView: View {
 
     private var keybindsSection: some View {
         LuminareSection(String(localized: "Keybinds", comment: "Section header shown in settings")) {
-            HStack(spacing: 4) {
+            LuminareButtonRow {
                 Button(action: model.importPrompt) {
                     HStack {
                         Text("Import")
@@ -258,7 +258,6 @@ struct AdvancedConfigurationView: View {
                         }
                     }
                 }
-                .luminareRoundingBehavior(leading: true)
 
                 Button(action: model.exportPrompt) {
                     HStack {
@@ -285,7 +284,6 @@ struct AdvancedConfigurationView: View {
                         }
                     }
                 }
-                .luminareRoundingBehavior(trailing: true)
                 .alert("Reset keybinds?", isPresented: $isConfirmingResetKeybinds) {
                     Button("Cancel", role: .cancel) {}
                     Button("Reset", role: .destructive, action: model.resetKeybinds)
@@ -293,6 +291,7 @@ struct AdvancedConfigurationView: View {
                     Text("This will reset all keybinds to their original defaults.")
                 }
             }
+            .luminareRoundingBehavior(top: true, bottom: true)
         }
     }
 

@@ -62,19 +62,18 @@ struct RadialMenuConfigurationView: View {
                 String(localized: "Actions", comment: "Header for radial menu section shown in settings"),
                 String(localized: "Left-click to step through cycle actions.", comment: "Section footer shown in settings")
             ) {
-                HStack(spacing: 4) {
+                LuminareButtonRow {
                     Button("Add") {
                         radialMenuActions.insert(.custom(.init(.noAction)), at: 0)
                     }
-                    .luminareRoundingBehavior(topLeading: true)
 
                     Button("Remove", role: .destructive) {
                         radialMenuActions.removeAll(where: selectedRadialMenuActions.contains)
                     }
-                    .luminareRoundingBehavior(topTrailing: true)
                     .disabled(selectedRadialMenuActions.isEmpty)
                     .keyboardShortcut(.delete)
                 }
+                .luminareRoundingBehavior(top: true)
 
                 LuminareList(
                     items: $radialMenuActions,

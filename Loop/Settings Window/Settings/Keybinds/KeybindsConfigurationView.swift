@@ -127,19 +127,18 @@ struct KeybindsConfigurationView: View {
 
     private var keybindsSection: some View {
         LuminareSection(String(localized: "Keybinds", comment: "Section header shown in settings")) {
-            HStack(spacing: 4) {
+            LuminareButtonRow {
                 Button("Add") {
                     keybinds.insert(.init(.noAction), at: 0)
                 }
-                .luminareRoundingBehavior(topLeading: true)
 
                 Button("Remove", role: .destructive) {
                     keybinds.removeAll(where: model.selectedKeybinds.contains)
                 }
-                .luminareRoundingBehavior(topTrailing: true)
                 .disabled(model.selectedKeybinds.isEmpty)
                 .keyboardShortcut(.delete)
             }
+            .luminareRoundingBehavior(top: true)
 
             LuminareList(
                 items: $keybinds,

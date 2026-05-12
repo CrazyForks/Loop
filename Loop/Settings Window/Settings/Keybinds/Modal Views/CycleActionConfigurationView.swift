@@ -32,7 +32,7 @@ struct CycleActionConfigurationView: View {
             }
 
             LuminareSection(outerPadding: 0) {
-                HStack(spacing: 2) {
+                LuminareButtonRow {
                     Button("Add") {
                         if action.cycle == nil {
                             action.cycle = []
@@ -40,14 +40,13 @@ struct CycleActionConfigurationView: View {
 
                         action.cycle?.insert(.init(.noAction), at: 0)
                     }
-                    .luminareRoundingBehavior(topLeading: true)
 
                     Button("Remove", role: .destructive) {
                         action.cycle?.removeAll(where: { selectedKeybinds.contains($0) })
                     }
                     .disabled(selectedKeybinds.isEmpty)
-                    .luminareRoundingBehavior(topTrailing: true)
                 }
+                .luminareRoundingBehavior(top: true)
 
                 LuminareList(
                     items: Binding(
