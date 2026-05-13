@@ -20,7 +20,7 @@ struct PaddingConfigurationView: View {
     let range: ClosedRange<Double> = 0...100
 
     var body: some View {
-        VStack(spacing: 12) {
+        LuminareForm {
             ScreenView {
                 PaddingPreview($paddingModel)
             }
@@ -54,9 +54,9 @@ struct PaddingConfigurationView: View {
             } label: {
                 Text("Close", comment: "Label for a button that closes a modal window")
             }
+            .buttonStyle(.luminare(overrideUseMainStyle: true))
             .luminareCornerRadius(8)
         }
-        .padding(16)
         .onChange(of: paddingModel) { _ in
             guard !isDeferringDefaultsCommit else { return }
             // This fixes some weird animations.

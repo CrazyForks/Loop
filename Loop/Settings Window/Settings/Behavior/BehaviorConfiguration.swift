@@ -34,7 +34,7 @@ struct BehaviorConfigurationView: View {
     @State private var isPaddingConfigurationViewPresented = false
 
     var body: some View {
-        Group {
+        LuminareForm {
             generalSection
             windowSection
             cursorSection

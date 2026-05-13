@@ -57,7 +57,7 @@ struct KeybindsConfigurationView: View {
     }
 
     var body: some View {
-        Group {
+        LuminareForm {
             triggerKeySection
             settingsSection
             keybindsSection

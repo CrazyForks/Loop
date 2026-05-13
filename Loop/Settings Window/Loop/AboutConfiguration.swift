@@ -176,10 +176,12 @@ struct AboutConfigurationView: View {
     }
 
     var body: some View {
-        iconHeader
-        updateSection
-        communitySection
-        creditsSection
+        LuminareForm {
+            iconHeader
+            updateSection
+            communitySection
+            creditsSection
+        }
     }
 
     private var iconHeader: some View {

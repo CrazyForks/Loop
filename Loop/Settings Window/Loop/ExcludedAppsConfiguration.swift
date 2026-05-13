@@ -14,42 +14,44 @@ struct ExcludedAppsConfigurationView: View {
     @State private var selectedApps = Set<URL>()
 
     var body: some View {
-        LuminareSection {
-            LuminareButtonRow {
-                Button("Add") {
-                    showAppChooser()
-                }
-
-                Button("Remove", role: .destructive) {
-                    excludedApps.removeAll { selectedApps.contains($0) }
-                }
-                .disabled(selectedApps.isEmpty)
-                .keyboardShortcut(.delete)
-            }
-            .luminareRoundingBehavior(top: true)
-
-            LuminareList(
-                items: $excludedApps,
-                selection: $selectedApps,
-                id: \.self
-            ) { item in
-                ExcludedListAppView(url: item.wrappedValue)
-                    .equatable()
-            } emptyView: {
-                HStack {
-                    Spacer()
-                    VStack {
-                        Text("No excluded applications")
-                            .font(.title3)
-                        Text("Press \"Add\" to add an application")
-                            .font(.caption)
+        LuminareForm {
+            LuminareSection {
+                LuminareButtonRow {
+                    Button("Add") {
+                        showAppChooser()
                     }
-                    Spacer()
+                    
+                    Button("Remove", role: .destructive) {
+                        excludedApps.removeAll { selectedApps.contains($0) }
+                    }
+                    .disabled(selectedApps.isEmpty)
+                    .keyboardShortcut(.delete)
                 }
-                .foregroundStyle(.secondary)
-                .padding()
+                .luminareRoundingBehavior(top: true)
+                
+                LuminareList(
+                    items: $excludedApps,
+                    selection: $selectedApps,
+                    id: \.self
+                ) { item in
+                    ExcludedListAppView(url: item.wrappedValue)
+                        .equatable()
+                } emptyView: {
+                    HStack {
+                        Spacer()
+                        VStack {
+                            Text("No excluded applications")
+                                .font(.title3)
+                            Text("Press \"Add\" to add an application")
+                                .font(.caption)
+                        }
+                        Spacer()
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding()
+                }
+                .luminareRoundingBehavior(bottom: true)
             }
-            .luminareRoundingBehavior(bottom: true)
         }
     }
 

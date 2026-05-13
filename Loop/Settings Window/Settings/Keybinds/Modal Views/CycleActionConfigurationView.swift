@@ -24,7 +24,7 @@ struct CycleActionConfigurationView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        LuminareForm {
             LuminareSection(outerPadding: 0) {
                 LuminareTextField("Cycle Keybind", text: Binding(get: { action.name ?? "" }, set: { action.name = $0 }))
                     .luminareFilledStates(.none)
@@ -89,9 +89,9 @@ struct CycleActionConfigurationView: View {
             } label: {
                 Text("Close", comment: "Label for a button that closes a modal window")
             }
+            .buttonStyle(.luminare(overrideUseMainStyle: true))
             .luminareCornerRadius(8)
         }
-        .padding(16)
         .onAppear {
             if action.cycle == nil {
                 action.cycle = []

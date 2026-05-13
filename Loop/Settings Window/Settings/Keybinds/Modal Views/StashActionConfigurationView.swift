@@ -59,7 +59,7 @@ struct StashActionConfigurationView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
+        LuminareForm {
             ScreenView(isBlurred: action.sizeMode != .custom) {
                 ActionPreview(action: action)
             }
@@ -67,7 +67,6 @@ struct StashActionConfigurationView: View {
             configurationSections()
             actionButtons()
         }
-        .padding(16)
         .onChange(of: action) { newValue in
             guard !isDeferringExternalCommit else { return }
             windowAction = newValue
@@ -164,6 +163,7 @@ struct StashActionConfigurationView: View {
                 Text("Close", comment: "Label for a button that closes a modal window")
             }
         }
+        .buttonStyle(.luminare(overrideUseMainStyle: true))
         .luminareCornerRadius(8)
     }
 

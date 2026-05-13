@@ -142,7 +142,7 @@ struct AdvancedConfigurationView: View {
     }
 
     var body: some View {
-        Group {
+        LuminareForm {
             generalSection
             radialMenuSection
             keybindsSection
